@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票期权定价与波动率曲面系统</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e4e4e4;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            color: #8892b0;
+            font-size: 1.1rem;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .main-panel {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel-title {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #ccd6f6;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #00d4ff, #00ff88);
+            border-radius: 2px;
+        }
+
+        #volatility-surface {
+            width: 100%;
+            height: 550px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .controls {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            min-width: 120px;
+            color: #8892b0;
+            font-size: 0.95rem;
+        }
+
+        .slider-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+            transition: transform 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .slider-value {
+            min-width: 80px;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.1);
+            color: #e4e4e4;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #00e5ff, #00aadd);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            border: none;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #00ff99, #00dd77);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+            border: none;
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .info-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: #8892b0;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+        }
+
+        .pricing-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            color: #8892b0;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 10px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #e4e4e4;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #00d4ff;
+        }
+
+        .pricing-result {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            display: none;
+        }
+
+        .pricing-result.show {
+            display: block;
+        }
+
+        .price-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00ff88;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .greeks-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .greek-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .greek-name {
+            font-size: 0.8rem;
+            color: #8892b0;
+        }
+
+        .greek-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #00d4ff;
+            font-family: 'Courier New', monospace;
+        }
+
+        .history-chart {
+            width: 100%;
+            height: 200px;
+        }
+
+        .selected-point-info {
+            padding: 15px;
+            background: rgba(255, 200, 0, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 200, 0, 0.3);
+            margin-top: 15px;
+            display: none;
+        }
+
+        .selected-point-info.show {
+            display: block;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .tab.active {
+            background: rgba(0, 212, 255, 0.2);
+            border-bottom-color: #00d4ff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            display: none;
+        }
+
+        .toggle-slider {
+            width: 50px;
+            height: 26px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 13px;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        .toggle-slider::after {
+            content: '';
+            width: 22px;
+            height: 22px;
+            background: #8892b0;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+        }
+
+        .toggle-switch input:checked + .toggle-slider::after {
+            left: 26px;
+            background: white;
+        }
+
+        .progress-container {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            border-radius: 3px;
+            transition: width 0.1s;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            pointer-events: none;
+            z-index: 1000;
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            display: none;
+        }
+
+        .tick-list {
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        .tick-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            gap: 5px;
+        }
+
+        .tick-item:hover {
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .tick-item.call {
+            border-left: 3px solid #00ff88;
+        }
+
+        .tick-item.put {
+            border-left: 3px solid #ff6b6b;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>股票期权定价与波动率曲面系统</h1>
+            <p class="subtitle">实时行情接入 · 有限差分法定价 · 波动率微笑曲面 · 历史演变回放</p>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-indicator"></div>
+                    <span>连接状态:</span>
+                    <span id="connection-status" class="status-value">连接中...</span>
+                </div>
+                <div class="status-item">
+                    <span>标的资产:</span>
+                    <span id="underlying-symbol" class="status-value">--</span>
+                </div>
+                <div class="status-item">
+                    <span>最新价格:</span>
+                    <span id="underlying-price" class="status-value">--</span>
+                </div>
+                <div class="status-item">
+                    <span>更新时间:</span>
+                    <span id="last-update" class="status-value">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="main-panel">
+                <div class="panel-title">波动率曲面 (行权价 vs 到期时间 vs 隐含波动率)</div>
+                <div id="volatility-surface"></div>
+                
+                <div class="controls">
+                    <div class="control-row">
+                        <span class="control-label">视图模式:</span>
+                        <div class="btn-group">
+                            <button class="btn active" onclick="setSurfaceView('3d')">3D曲面</button>
+                            <button class="btn" onclick="setSurfaceView('heatmap')">热力图</button>
+                            <button class="btn" onclick="setSurfaceView('contour')">等高线</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">时间回放:</span>
+                        <div class="slider-container">
+                            <input type="range" id="history-slider" min="0" max="0" value="0" disabled>
+                            <span id="history-value" class="slider-value">实时</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">自动回放:</span>
+                        <div class="btn-group">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="auto-play-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="auto-play-label">已禁用</span>
+                            <button class="btn" id="reset-btn" onclick="resetToRealtime()">重置为实时</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-row">
+                        <span class="control-label">回放速度:</span>
+                        <div class="slider-container">
+                            <input type="range" id="speed-slider" min="1" max="10" value="3">
+                            <span id="speed-value" class="slider-value">3x</span>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="selected-point-info" id="selected-point-info">
+                    <div class="panel-title" style="font-size: 1rem;">选中点信息</div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">行权价/现货价</div>
+                            <div class="info-value" id="selected-moneyness">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">到期时间</div>
+                            <div class="info-value" id="selected-tenor">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">隐含波动率</div>
+                            <div class="info-value" id="selected-iv">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">行权价格</div>
+                            <div class="info-value" id="selected-strike">--</div>
+                        </div>
+                    </div>
+                    <div id="point-history-chart" class="history-chart"></div>
+                </div>
+            </div>
+
+            <div class="side-panel">
+                <div class="info-card">
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchTab('pricing')">期权定价</div>
+                        <div class="tab" onclick="switchTab('ticks')">实时行情</div>
+                        <div class="tab" onclick="switchTab('history')">历史走势</div>
+                    </div>
+                    
+                    <div class="tab-content active" id="tab-pricing">
+                        <div class="pricing-form">
+                            <div class="form-group">
+                                <label>期权类型</label>
+                                <select id="option-type">
+                                    <option value="call">看涨期权 (Call)</option>
+                                    <option value="put">看跌期权 (Put)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>行权价格</label>
+                                <input type="number" id="strike-price" step="0.1" value="4.0">
+                            </div>
+                            <div class="form-group">
+                                <label>到期时间 (年)</label>
+                                <input type="number" id="time-to-maturity" step="0.01" value="0.083">
+                            </div>
+                            <div class="form-group">
+                                <label>定价方法</label>
+                                <select id="pricing-method">
+                                    <option value="analytical">BS解析公式</option>
+                                    <option value="fdm">有限差分法 (FDM)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>使用曲面波动率</label>
+                                <select id="use-surface-iv">
+                                    <option value="true">是</option>
+                                    <option value="false">否 (固定20%)</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary" onclick="priceOption()">计算期权价格</button>
+                        </div>
+                        
+                        <div class="pricing-result" id="pricing-result">
+                            <div class="price-value" id="option-price">--</div>
+                            <div class="greeks-grid">
+                                <div class="greek-item">
+                                    <div class="greek-name">Delta</div>
+                                    <div class="greek-value" id="greek-delta">--</div>
+                                </div>
+                                <div class="greek-item">
+                                    <div class="greek-name">Gamma</div>
+                                    <div class="greek-value" id="greek-gamma">--</div>
+                                </div>
+                                <div class="greek-item">
+                                    <div class="greek-name">Theta</div>
+                                    <div class="greek-value" id="greek-theta">--</div>
+                                </div>
+                                <div class="greek-item">
+                                    <div class="greek-name">Vega</div>
+                                    <div class="greek-value" id="greek-vega">--</div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 15px; font-size: 0.85rem; color: #8892b0;">
+                                隐含波动率: <span id="pricing-iv" style="color: #00d4ff;">--</span>
+                            </div>
+                            <div style="margin-top: 5px; font-size: 0.85rem; color: #8892b0;">
+                                定价方法: <span id="pricing-method-used" style="color: #00d4ff;">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-ticks">
+                        <div class="tick-list" id="tick-list">
+                            <div style="text-align: center; color: #8892b0; padding: 20px;">
+                                等待数据...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-content" id="tab-history">
+                        <canvas id="underlying-chart" class="history-chart"></canvas>
+                        <div style="margin-top: 20px;">
+                            <div class="info-label">波动率指数 (ATM IV)</div>
+                            <canvas id="iv-chart" class="history-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="panel-title" style="font-size: 1.1rem;">波动率曲面统计</div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">最小IV</div>
+                            <div class="info-value" id="iv-min">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">最大IV</div>
+                            <div class="info-value" id="iv-max">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">ATM IV</div>
+                            <div class="info-value" id="iv-atm">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">平均IV</div>
+                            <div class="info-value" id="iv-avg">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="panel-title" style="font-size: 1.1rem;">曲面数据点</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="info-item">
+                            <div class="info-label">行权价点数</div>
+                            <div class="info-value" id="strike-points">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">到期时间点数</div>
+                            <div class="info-value" id="tenor-points">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">原始报价点</div>
+                            <div class="info-value" id="raw-points">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">历史帧数</div>
+                            <div class="info-value" id="history-frames">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        const state = {
+            ws: null,
+            currentSurface: null,
+            surfaceHistory: [],
+            underlyingPrice: 4.0,
+            underlyingSymbol: '510300',
+            underlyingHistory: [],
+            atmIvHistory: [],
+            selectedPoint: null,
+            selectedPointHistory: [],
+            surfaceView: '3d',
+            isHistoryMode: false,
+            historyIndex: 0,
+            autoPlay: false,
+            autoPlayInterval: null,
+            playbackSpeed: 3,
+            lastUpdateTime: null
+        };
+
+        const tenorNames = ['1D', '7D', '14D', '21D', '1M', '2M', '3M', '6M', '9M', '1Y'];
+
+        function formatNumber(num, decimals = 4) {
+            if (num === null || num === undefined || isNaN(num)) return '--';
+            return Number(num).toFixed(decimals);
+        }
+
+        function formatPercent(num) {
+            if (num === null || num === undefined || isNaN(num)) return '--';
+            return (num * 100).toFixed(2) + '%';
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            state.ws = new WebSocket(wsUrl);
+            
+            state.ws.onopen = function() {
+                document.getElementById('connection-status').textContent = '已连接';
+                document.getElementById('connection-status').style.color = '#00ff88';
+                console.log('WebSocket connected');
+            };
+            
+            state.ws.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    handleMessage(message);
+                } catch (e) {
+                    console.error('Error parsing message:', e);
+                }
+            };
+            
+            state.ws.onclose = function() {
+                document.getElementById('connection-status').textContent = '已断开';
+                document.getElementById('connection-status').style.color = '#ff6b6b';
+                console.log('WebSocket disconnected, retrying...');
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            state.ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'initial_snapshot':
+                case 'tick_update':
+                    handleTickUpdate(message.data);
+                    break;
+                case 'surface_history':
+                    handleSurfaceHistory(message.data);
+                    break;
+                case 'surface_at_index':
+                    handleSurfaceAtIndex(message.data);
+                    break;
+                case 'underlying_history':
+                    handleUnderlyingHistory(message.data);
+                    break;
+                case 'option_price':
+                    handleOptionPrice(message.data);
+                    break;
+            }
+        }
+
+        function handleTickUpdate(data) {
+            state.underlyingPrice = data.underlying_price;
+            state.underlyingSymbol = data.underlying_symbol;
+            state.lastUpdateTime = new Date(data.timestamp);
+            
+            document.getElementById('underlying-symbol').textContent = 
+                `${data.underlying_symbol} ${data.underlying_name}`;
+            document.getElementById('underlying-price').textContent = 
+                formatNumber(data.underlying_price, 3);
+            document.getElementById('last-update').textContent = 
+                new Date(data.timestamp).toLocaleTimeString('zh-CN');
+            
+            if (!state.isHistoryMode) {
+                state.currentSurface = data.surface;
+                renderSurface(state.currentSurface);
+                updateSurfaceStats(data.surface);
+            }
+            
+            if (data.ticks) {
+                updateTickList(data.ticks);
+            }
+            
+            updateUnderlyingHistory(data);
+            
+            if (state.ws && state.ws.readyState === WebSocket.OPEN && state.surfaceHistory.length === 0) {
+                state.ws.send(JSON.stringify({ type: 'get_surface_history' }));
+                state.ws.send(JSON.stringify({ type: 'get_underlying_history' }));
+            }
+        }
+
+        function handleSurfaceHistory(data) {
+            state.surfaceHistory = data.history;
+            const slider = document.getElementById('history-slider');
+            slider.max = Math.max(0, data.history.length - 1);
+            document.getElementById('history-frames').textContent = data.history.length;
+        }
+
+        function handleSurfaceAtIndex(data) {
+            state.currentSurface = data.surface;
+            renderSurface(state.currentSurface);
+            updateSurfaceStats(data.surface);
+            
+            if (state.selectedPoint) {
+                updateSelectedPointHistory();
+            }
+        }
+
+        function handleUnderlyingHistory(data) {
+            state.underlyingHistory = data.history;
+            updateUnderlyingChart();
+        }
+
+        function handleOptionPrice(data) {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            
+            const resultDiv = document.getElementById('pricing-result');
+            resultDiv.classList.add('show');
+            
+            document.getElementById('option-price').textContent = formatNumber(data.price, 4);
+            document.getElementById('greek-delta').textContent = formatNumber(data.delta, 4);
+            document.getElementById('greek-gamma').textContent = formatNumber(data.gamma, 4);
+            document.getElementById('greek-theta').textContent = formatNumber(data.theta, 4);
+            document.getElementById('greek-vega').textContent = formatNumber(data.vega, 4);
+            document.getElementById('pricing-iv').textContent = formatPercent(data.implied_volatility);
+            document.getElementById('pricing-method-used').textContent = data.pricing_method;
+        }
+
+        function renderSurface(surface) {
+            if (!surface) return;
+            
+            const x = surface.moneyness_grid;
+            const y = surface.tenor_grid;
+            const z = surface.iv_grid;
+            
+            const yLabels = y.map((t, i) => tenorNames[i] || (t * 365).toFixed(0) + 'D');
+            
+            let trace;
+            
+            if (state.surfaceView === '3d') {
+                trace = {
+                    x: x,
+                    y: yLabels,
+                    z: z,
+                    type: 'surface',
+                    colorscale: 'Viridis',
+                    showscale: true,
+                    colorbar: {
+                        title: '隐含波动率',
+                        tickformat: '.0%',
+                        len: 0.7,
+                        x: 1.02
+                    },
+                    contours: {
+                        z: {
+                            show: true,
+                            usecolormap: true,
+                            highlightcolor: '#00ff88',
+                            project: { z: true }
+                        }
+                    },
+                    lighting: {
+                        ambient: 0.8,
+                        diffuse: 0.8,
+                        specular: 0.3,
+                        roughness: 0.5
+                    }
+                };
+            } else if (state.surfaceView === 'heatmap') {
+                trace = {
+                    x: x,
+                    y: yLabels,
+                    z: z,
+                    type: 'heatmap',
+                    colorscale: 'Viridis',
+                    showscale: true,
+                    colorbar: {
+                        title: '隐含波动率',
+                        tickformat: '.0%',
+                        len: 0.7,
+                        x: 1.02
+                    }
+                };
+            } else {
+                trace = {
+                    x: x,
+                    y: yLabels,
+                    z: z,
+                    type: 'contour',
+                    colorscale: 'Viridis',
+                    showscale: true,
+                    colorbar: {
+                        title: '隐含波动率',
+                        tickformat: '.0%',
+                        len: 0.7,
+                        x: 1.02
+                    },
+                    contours: {
+                        coloring: 'heatmap',
+                        showlabels: true
+                    }
+                };
+            }
+
+            const layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: {
+                    color: '#e4e4e4',
+                    family: '-apple-system, BlinkMacSystemFont, sans-serif'
+                },
+                margin: {
+                    l: 80,
+                    r: 100,
+                    t: 40,
+                    b: 80
+                },
+                scene: state.surfaceView === '3d' ? {
+                    xaxis: {
+                        title: { text: '行权价/现货价 (Moneyness)', font: { size: 12 } },
+                        gridcolor: 'rgba(255,255,255,0.1)',
+                        showbackground: false
+                    },
+                    yaxis: {
+                        title: { text: '到期时间', font: { size: 12 } },
+                        gridcolor: 'rgba(255,255,255,0.1)',
+                        showbackground: false
+                    },
+                    zaxis: {
+                        title: { text: '隐含波动率', font: { size: 12 } },
+                        tickformat: '.0%',
+                        gridcolor: 'rgba(255,255,255,0.1)',
+                        showbackground: false
+                    },
+                    camera: {
+                        eye: { x: 1.6, y: 1.6, z: 1.2 }
+                    }
+                } : undefined,
+                xaxis: state.surfaceView !== '3d' ? {
+                    title: '行权价/现货价 (Moneyness)',
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zerolinecolor: 'rgba(255,255,255,0.2)'
+                } : undefined,
+                yaxis: state.surfaceView !== '3d' ? {
+                    title: '到期时间',
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zerolinecolor: 'rgba(255,255,255,0.2)'
+                } : undefined,
+                hovermode: 'closest'
+            };
+
+            const rawPoints = surface.raw_points || [];
+            const rawTrace = {
+                x: rawPoints.map(p => p.moneyness),
+                y: rawPoints.map(p => {
+                    const idx = y.findIndex(t => Math.abs(t - p.time_to_maturity) < 5/365);
+                    return idx >= 0 ? yLabels[idx] : (p.time_to_maturity * 365).toFixed(0) + 'D';
+                }),
+                z: rawPoints.map(p => p.implied_volatility),
+                mode: 'markers',
+                type: state.surfaceView === '3d' ? 'scatter3d' : 'scatter',
+                marker: {
+                    size: 4,
+                    color: '#ff6b6b',
+                    opacity: 0.8,
+                    line: { color: '#fff', width: 1 }
+                },
+                name: '原始报价点'
+            };
+
+            const data = state.surfaceView === '3d' ? [trace, rawTrace] : [trace];
+
+            Plotly.react('volatility-surface', data, layout, {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['sendDataToCloud', 'select2d', 'lasso2d']
+            });
+
+            document.getElementById('volatility-surface').on('plotly_click', function(data) {
+                if (data.points && data.points.length > 0) {
+                    handleSurfaceClick(data.points[0]);
+                }
+            });
+        }
+
+        function handleSurfaceClick(point) {
+            const surface = state.currentSurface;
+            if (!surface) return;
+
+            let moneyness, tenorIndex, iv;
+            
+            if (state.surfaceView === '3d') {
+                moneyness = point.x;
+                const yIdx = surface.tenor_grid.findIndex(t => 
+                    Math.abs(t - point.y) < 0.001
+                );
+                tenorIndex = yIdx >= 0 ? yIdx : 0;
+                iv = point.z;
+            } else {
+                moneyness = point.x;
+                const yLabel = point.y;
+                tenorIndex = tenorNames.indexOf(yLabel);
+                if (tenorIndex < 0) {
+                    tenorIndex = surface.tenor_grid.findIndex(t => 
+                        Math.abs((t * 365).toFixed(0) + 'D' - yLabel) < 1
+                    );
+                }
+                tenorIndex = Math.max(0, tenorIndex);
+                iv = point.z;
+            }
+
+            const tenor = surface.tenor_grid[tenorIndex];
+            const strike = moneyness * state.underlyingPrice;
+
+            state.selectedPoint = { moneyness, tenor, tenorIndex, strike, iv };
+            
+            const infoDiv = document.getElementById('selected-point-info');
+            infoDiv.classList.add('show');
+            
+            document.getElementById('selected-moneyness').textContent = formatNumber(moneyness, 3);
+            document.getElementById('selected-tenor').textContent = tenorNames[tenorIndex] || (tenor * 365).toFixed(0) + 'D';
+            document.getElementById('selected-iv').textContent = formatPercent(iv);
+            document.getElementById('selected-strike').textContent = formatNumber(strike, 3);
+
+            updateSelectedPointHistory();
+        }
+
+        function updateSelectedPointHistory() {
+            if (!state.selectedPoint || state.surfaceHistory.length === 0) return;
+
+            const { moneyness, tenorIndex } = state.selectedPoint;
+            const history = state.surfaceHistory;
+            
+            state.selectedPointHistory = history.map(s => {
+                const mIdx = s.moneyness_grid.findIndex(m => Math.abs(m - moneyness) < 0.005);
+                const idx = mIdx >= 0 ? mIdx : Math.floor(s.moneyness_grid.length / 2);
+                return s.iv_grid[tenorIndex] ? s.iv_grid[tenorIndex][idx] : null;
+            }).filter(v => v !== null);
+
+            const timestamps = history.map(s => new Date(s.timestamp).toLocaleTimeString('zh-CN'));
+            
+            const trace = {
+                x: timestamps,
+                y: state.selectedPointHistory.map(v => v * 100),
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { 
+                    color: 'rgba(0, 212, 255, 1)', 
+                    width: 2 
+                },
+                marker: { 
+                    color: 'rgba(0, 255, 136, 1)', 
+                    size: 4 
+                },
+                fill: 'tozeroy',
+                fillcolor: 'rgba(0, 212, 255, 0.1)'
+            };
+
+            const layout = {
+                title: '该点波动率历史演变',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#e4e4e4', size: 10 },
+                margin: { l: 40, r: 10, t: 30, b: 30 },
+                xaxis: {
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zeroline: false,
+                    tickangle: -45
+                },
+                yaxis: {
+                    title: 'IV (%)',
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    zeroline: false,
+                    tickformat: '.1f'
+                }
+            };
+
+            Plotly.react('point-history-chart', [trace], layout, {
+                responsive: true,
+                displayModeBar: false
+            });
+        }
+
+        function updateSurfaceStats(surface) {
+            const z = surface.iv_grid;
+            const flatZ = z.flat();
+            const minIv = Math.min(...flatZ);
+            const maxIv = Math.max(...flatZ);
+            const avgIv = flatZ.reduce((a, b) => a + b, 0) / flatZ.length;
+            
+            const atmIdx = Math.floor(surface.moneyness_grid.length / 2);
+            const atmIv = z[Math.floor(z.length / 2)][atmIdx];
+            
+            document.getElementById('iv-min').textContent = formatPercent(minIv);
+            document.getElementById('iv-max').textContent = formatPercent(maxIv);
+            document.getElementById('iv-atm').textContent = formatPercent(atmIv);
+            document.getElementById('iv-avg').textContent = formatPercent(avgIv);
+            
+            document.getElementById('strike-points').textContent = surface.moneyness_grid.length;
+            document.getElementById('tenor-points').textContent = surface.tenor_grid.length;
+            document.getElementById('raw-points').textContent = (surface.raw_points || []).length;
+
+            state.atmIvHistory.push(atmIv);
+            if (state.atmIvHistory.length > 100) {
+                state.atmIvHistory = state.atmIvHistory.slice(-100);
+            }
+            updateIvChart();
+        }
+
+        function updateTickList(ticks) {
+            const listDiv = document.getElementById('tick-list');
+            
+            const html = ticks.slice(0, 30).map(tick => `
+                <div class="tick-item ${tick.option_type}">
+                    <div style="font-weight: bold;">${tick.option_type.toUpperCase()}</div>
+                    <div>K: ${formatNumber(tick.strike, 2)}</div>
+                    <div>M: ${formatPercent(tick.moneyness - 1)}</div>
+                    <div>IV: ${formatPercent(tick.mid_price ? 0.2 : 0)}</div>
+                </div>
+            `).join('');
+            
+            listDiv.innerHTML = html;
+        }
+
+        function updateUnderlyingHistory(data) {
+            if (state.isHistoryMode) return;
+            
+            state.underlyingHistory.push({
+                timestamp: data.timestamp,
+                price: data.underlying_price
+            });
+            
+            if (state.underlyingHistory.length > 100) {
+                state.underlyingHistory = state.underlyingHistory.slice(-100);
+            }
+            
+            updateUnderlyingChart();
+        }
+
+        let underlyingChart = null;
+        let ivChart = null;
+
+        function updateUnderlyingChart() {
+            const ctx = document.getElementById('underlying-chart');
+            if (!ctx) return;
+            
+            if (underlyingChart) {
+                underlyingChart.destroy();
+            }
+            
+            const data = state.underlyingHistory;
+            const labels = data.map(d => new Date(d.timestamp).toLocaleTimeString('zh-CN'));
+            const prices = data.map(d => d.price);
+            
+            underlyingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '标的价格',
+                        data: prices,
+                        borderColor: 'rgba(0, 212, 255, 1)',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#8892b0', maxTicksLimit: 6 }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#8892b0' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateIvChart() {
+            const ctx = document.getElementById('iv-chart');
+            if (!ctx) return;
+            
+            if (ivChart) {
+                ivChart.destroy();
+            }
+            
+            const data = state.atmIvHistory;
+            const labels = data.map((_, i) => i);
+            
+            ivChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'ATM IV',
+                        data: data.map(v => v * 100),
+                        borderColor: 'rgba(0, 255, 136, 1)',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#8892b0', maxTicksLimit: 6 }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#8892b0' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function setSurfaceView(view) {
+            state.surfaceView = view;
+            document.querySelectorAll('.control-row .btn').forEach((btn, idx) => {
+                const views = ['3d', 'heatmap', 'contour'];
+                btn.classList.toggle('active', views[idx] === view);
+            });
+            if (state.currentSurface) {
+                renderSurface(state.currentSurface);
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        function priceOption() {
+            const strike = parseFloat(document.getElementById('strike-price').value);
+            const ttm = parseFloat(document.getElementById('time-to-maturity').value);
+            const optType = document.getElementById('option-type').value;
+            const method = document.getElementById('pricing-method').value;
+            const useSurfaceIv = document.getElementById('use-surface-iv').value === 'true';
+            
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify({
+                    type: 'price_option',
+                    params: {
+                        strike: strike,
+                        time_to_maturity: ttm,
+                        option_type: optType,
+                        use_fdm: method === 'fdm',
+                        use_surface_iv: useSurfaceIv
+                    }
+                }));
+            } else {
+                fetch(`/api/option/price?strike=${strike}&time_to_maturity=${ttm}&option_type=${optType}&use_fdm=${method === 'fdm'}&use_surface_iv=${useSurfaceIv}`)
+                    .then(r => r.json())
+                    .then(data => handleOptionPrice(data));
+            }
+        }
+
+        document.getElementById('history-slider').addEventListener('input', function(e) {
+            const index = parseInt(e.target.value);
+            state.historyIndex = index;
+            
+            if (index === state.surfaceHistory.length - 1 || state.surfaceHistory.length === 0) {
+                state.isHistoryMode = false;
+                document.getElementById('history-value').textContent = '实时';
+                if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                    state.ws.send(JSON.stringify({ type: 'get_surface_history' }));
+                }
+            } else {
+                state.isHistoryMode = true;
+                document.getElementById('history-value').textContent = `历史 #${index}`;
+                if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                    state.ws.send(JSON.stringify({ type: 'get_surface_at', index: index }));
+                } else if (state.surfaceHistory[index]) {
+                    handleSurfaceAtIndex({ index: index, surface: state.surfaceHistory[index] });
+                }
+            }
+            
+            updateProgressBar();
+        });
+
+        document.getElementById('auto-play-toggle').addEventListener('change', function(e) {
+            state.autoPlay = e.target.checked;
+            document.getElementById('auto-play-label').textContent = state.autoPlay ? '已启用' : '已禁用';
+            
+            if (state.autoPlay) {
+                startAutoPlay();
+            } else {
+                stopAutoPlay();
+            }
+        });
+
+        document.getElementById('speed-slider').addEventListener('input', function(e) {
+            state.playbackSpeed = parseInt(e.target.value);
+            document.getElementById('speed-value').textContent = state.playbackSpeed + 'x';
+        });
+
+        function startAutoPlay() {
+            stopAutoPlay();
+            
+            const interval = 1000 / state.playbackSpeed;
+            state.autoPlayInterval = setInterval(() => {
+                const slider = document.getElementById('history-slider');
+                let current = parseInt(slider.value);
+                const max = parseInt(slider.max);
+                
+                current++;
+                if (current > max) {
+                    current = 0;
+                }
+                
+                slider.value = current;
+                slider.dispatchEvent(new Event('input'));
+            }, interval);
+        }
+
+        function stopAutoPlay() {
+            if (state.autoPlayInterval) {
+                clearInterval(state.autoPlayInterval);
+                state.autoPlayInterval = null;
+            }
+        }
+
+        function resetToRealtime() {
+            const slider = document.getElementById('history-slider');
+            slider.value = slider.max;
+            slider.dispatchEvent(new Event('input'));
+        }
+
+        function updateProgressBar() {
+            const slider = document.getElementById('history-slider');
+            const max = parseInt(slider.max) || 1;
+            const current = parseInt(slider.value) || 0;
+            const percent = (current / max) * 100;
+            document.getElementById('progress-bar').style.width = percent + '%';
+        }
+
+        function init() {
+            connectWebSocket();
+            
+            fetch('/api/snapshot')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.surface) {
+                        state.currentSurface = data.surface;
+                        renderSurface(state.currentSurface);
+                        updateSurfaceStats(data.surface);
+                    }
+                    if (data.underlying_price) {
+                        state.underlyingPrice = data.underlying_price;
+                        document.getElementById('underlying-price').textContent = 
+                            formatNumber(data.underlying_price, 3);
+                    }
+                })
+                .catch(e => console.log('Initial fetch failed, waiting for WebSocket...'));
+        }
+
+        window.onload = init;
+        
+        window.onbeforeunload = function() {
+            if (state.ws) {
+                state.ws.close();
+            }
+            stopAutoPlay();
+        };
+    </script>
+</body>
+</html>

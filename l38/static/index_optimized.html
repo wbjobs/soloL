@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>期权波动率曲面 - Three.js InstancedMesh 高性能版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #0f0f2a 100%);
+            color: #e4e4e4;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            padding: 12px 25px;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.3rem;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 25px;
+            font-size: 0.9rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #00ff88;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .status-value {
+            font-family: 'Courier New', monospace;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .perf-badge {
+            padding: 4px 10px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: #00ff88;
+        }
+
+        .main-view {
+            position: relative;
+            background: radial-gradient(ellipse at center, rgba(0, 50, 100, 0.1) 0%, transparent 70%);
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .side-panel {
+            background: rgba(0, 0, 0, 0.4);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            color: #ccd6f6;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: linear-gradient(180deg, #00d4ff, #00ff88);
+            border-radius: 2px;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .info-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            color: #8892b0;
+            margin-bottom: 3px;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+        }
+
+        .controls-panel {
+            grid-column: 1 / -1;
+            background: rgba(0, 0, 0, 0.5);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px 25px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            min-width: 100px;
+            color: #8892b0;
+            font-size: 0.85rem;
+        }
+
+        .slider-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        .slider-value {
+            min-width: 70px;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            color: #00d4ff;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            background: rgba(255, 255, 255, 0.08);
+            color: #e4e4e4;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+            transform: translateY(-1px);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00ff88, #00cc6a);
+            border: none;
+            color: #000;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #00ff99, #00dd77);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff6b6b, #ff4757);
+            border: none;
+        }
+
+        .btn-warning:hover {
+            background: linear-gradient(135deg, #ff8080, #ff5566);
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            display: none;
+        }
+
+        .toggle-slider {
+            width: 42px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 11px;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .toggle-slider::after {
+            content: '';
+            width: 18px;
+            height: 18px;
+            background: #8892b0;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: all 0.2s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #00d4ff, #00ff88);
+        }
+
+        .toggle-switch input:checked + .toggle-slider::after {
+            left: 22px;
+            background: white;
+        }
+
+        .progress-container {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            border-radius: 2px;
+            transition: width 0.1s linear;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            z-index: 1000;
+            border: 1px solid rgba(0, 212, 255, 0.4);
+            backdrop-filter: blur(10px);
+            min-width: 180px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .tooltip-title {
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .tooltip-label {
+            color: #8892b0;
+        }
+
+        .tooltip-value {
+            color: #00ff88;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            font-size: 0.75rem;
+        }
+
+        .stat-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-label {
+            color: #8892b0;
+            font-size: 0.7rem;
+        }
+
+        .stat-value {
+            color: #00d4ff;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        .axis-label {
+            position: absolute;
+            color: #8892b0;
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+
+        .legend {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .legend-title {
+            font-size: 0.8rem;
+            color: #8892b0;
+            margin-bottom: 8px;
+        }
+
+        .color-bar {
+            width: 20px;
+            height: 150px;
+            background: linear-gradient(180deg, 
+                #440154 0%, #482878 10%, #3e4a89 20%, #31688e 30%, 
+                #26828e 40%, #1f9e89 50%, #35b779 60%, #6ece58 70%, 
+                #b5de2b 80%, #fde725 90%, #f0f921 100%
+            );
+            border-radius: 4px;
+        }
+
+        .legend-labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 150px;
+            margin-left: 8px;
+            font-size: 0.75rem;
+            color: #8892b0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .legend-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .selected-point-card {
+            display: none;
+            background: rgba(255, 200, 0, 0.1);
+            border: 1px solid rgba(255, 200, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .selected-point-card.show {
+            display: block;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 120px;
+        }
+
+        .tab-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tab-buttons {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0 20px;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            padding: 10px 16px;
+            background: transparent;
+            border: none;
+            color: #8892b0;
+            cursor: pointer;
+            font-size: 0.85rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: #e4e4e4;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            color: #00d4ff;
+            border-bottom-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .heatmap-container {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .heatmap-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .heatmap-title {
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.5);
+            font-size: 0.8rem;
+            color: #00d4ff;
+            font-weight: bold;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .heatmap-canvas {
+            flex: 1;
+            width: 100%;
+        }
+
+        .arbitrage-list {
+            max-height: 200px;
+            overflow-y: auto;
+            gap: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .arbitrage-item {
+            background: rgba(255, 107, 107, 0.1);
+            border-left: 3px solid #ff6b6b;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .arbitrage-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .arbitrage-type {
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+
+        .arbitrage-severity {
+            padding: 2px 6px;
+            background: rgba(255, 107, 107, 0.2);
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+
+        .arbitrage-details {
+            color: #8892b0;
+            font-size: 0.75rem;
+        }
+
+        .arbitrage-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .montecarlo-container {
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .montecarlo-controls {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .montecarlo-chart {
+            flex: 1;
+            min-height: 0;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 10px;
+        }
+
+        .montecarlo-result {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .backtest-container {
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        .backtest-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .backtest-result {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .backtest-chart {
+            flex: 1;
+            min-height: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 10px;
+        }
+
+        .result-card {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .result-card .result-label {
+            font-size: 0.75rem;
+            color: #8892b0;
+            margin-bottom: 4px;
+        }
+
+        .result-card .result-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #00d4ff;
+            font-family: 'Courier New', monospace;
+        }
+
+        .result-card.positive .result-value {
+            color: #00ff88;
+        }
+
+        .result-card.negative .result-value {
+            color: #ff6b6b;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .input-group label {
+            font-size: 0.75rem;
+            color: #8892b0;
+        }
+
+        .input-group input, .input-group select {
+            padding: 8px 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: #e4e4e4;
+            font-size: 0.85rem;
+            font-family: inherit;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        .alert-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 18px;
+            height: 18px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            animation: pulseBadge 2s infinite;
+        }
+
+        @keyframes pulseBadge {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 期权波动率曲面 - Three.js InstancedMesh 高性能版</h1>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-indicator"></div>
+                    <span id="connection-status">连接中...</span>
+                </div>
+                <div class="status-item">
+                    <span>标的:</span>
+                    <span id="underlying-symbol" class="status-value">--</span>
+                </div>
+                <div class="status-item">
+                    <span>价格:</span>
+                    <span id="underlying-price" class="status-value">--</span>
+                </div>
+                <div class="status-item">
+                    <span>FPS:</span>
+                    <span id="fps-counter" class="status-value">--</span>
+                </div>
+                <div class="perf-badge" id="perf-badge">InstancedMesh · 1 Draw Call</div>
+            </div>
+        </div>
+
+        <div class="main-view">
+            <div class="tab-container">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="surface">📊 波动率曲面</button>
+                    <button class="tab-btn" data-tab="greeks">📐 希腊值热力图</button>
+                    <button class="tab-btn" data-tab="montecarlo" style="position: relative;">🎲 蒙特卡洛模拟</button>
+                    <button class="tab-btn" data-tab="backtest">📈 策略回测</button>
+                    <button class="tab-btn" data-tab="arbitrage" style="position: relative;">
+                        ⚠️ 套利检测
+                        <span class="alert-badge" id="arbitrage-alert-badge" style="display: none;">0</span>
+                    </button>
+                </div>
+
+                <div class="tab-content active" id="tab-surface">
+                    <div id="canvas-container"></div>
+                    <div class="legend">
+                        <div class="legend-title">隐含波动率</div>
+                        <div class="legend-container">
+                            <div class="color-bar"></div>
+                            <div class="legend-labels">
+                                <span id="legend-max">80%</span>
+                                <span>--</span>
+                                <span id="legend-min">5%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tooltip" id="tooltip"></div>
+                    <div class="stats-panel" style="position: absolute; bottom: 20px; left: 20px; right: 340px;">
+                        <div class="stat-item">
+                            <div class="stat-label">曲面格点</div>
+                            <div class="stat-value" id="grid-count">--</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">曲面构建时间</div>
+                            <div class="stat-value" id="build-time">--</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">数据降采样率</div>
+                            <div class="stat-value" id="downsample-rate">--</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">缓存命中率</div>
+                            <div class="stat-value" id="cache-hit-rate">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-greeks">
+                    <div class="heatmap-container">
+                        <div class="heatmap-card">
+                            <div class="heatmap-title">
+                                <span>Delta 热力图</span>
+                                <span id="delta-last-update" style="color: #8892b0; font-size: 0.7rem;">--</span>
+                            </div>
+                            <canvas class="heatmap-canvas" id="heatmap-delta"></canvas>
+                        </div>
+                        <div class="heatmap-card">
+                            <div class="heatmap-title">
+                                <span>Gamma 热力图</span>
+                                <span id="gamma-last-update" style="color: #8892b0; font-size: 0.7rem;">--</span>
+                            </div>
+                            <canvas class="heatmap-canvas" id="heatmap-gamma"></canvas>
+                        </div>
+                        <div class="heatmap-card">
+                            <div class="heatmap-title">
+                                <span>Vega 热力图</span>
+                                <span id="vega-last-update" style="color: #8892b0; font-size: 0.7rem;">--</span>
+                            </div>
+                            <canvas class="heatmap-canvas" id="heatmap-vega"></canvas>
+                        </div>
+                        <div class="heatmap-card">
+                            <div class="heatmap-title">
+                                <span>Theta 热力图</span>
+                                <span id="theta-last-update" style="color: #8892b0; font-size: 0.7rem;">--</span>
+                            </div>
+                            <canvas class="heatmap-canvas" id="heatmap-theta"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-montecarlo">
+                    <div class="montecarlo-container">
+                        <div class="montecarlo-controls">
+                            <div class="input-group">
+                                <label>初始价格 S0</label>
+                                <input type="number" id="mc-s0" value="4.0" step="0.1">
+                            </div>
+                            <div class="input-group">
+                                <label>行权价 K</label>
+                                <input type="number" id="mc-k" value="4.0" step="0.1">
+                            </div>
+                            <div class="input-group">
+                                <label>到期时间 T (年)</label>
+                                <input type="number" id="mc-t" value="0.083" step="0.01">
+                            </div>
+                            <div class="input-group">
+                                <label>波动率 σ</label>
+                                <input type="number" id="mc-sigma" value="0.2" step="0.01">
+                            </div>
+                            <div class="input-group">
+                                <label>无风险利率 r</label>
+                                <input type="number" id="mc-r" value="0.025" step="0.001">
+                            </div>
+                            <div class="input-group">
+                                <label>期权类型</label>
+                                <select id="mc-type">
+                                    <option value="call">认购 Call</option>
+                                    <option value="put">认沽 Put</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>模拟路径数</label>
+                                <input type="number" id="mc-paths" value="10000" step="1000">
+                            </div>
+                            <div class="input-group">
+                                <label>时间步数</label>
+                                <input type="number" id="mc-steps" value="252" step="10">
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-success" id="mc-start-btn">▶ 开始模拟</button>
+                            <button class="btn" id="mc-stop-btn" disabled>⏹ 停止</button>
+                        </div>
+                        <div class="progress-container" id="mc-progress-container" style="display: none;">
+                            <div class="progress-bar" id="mc-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="montecarlo-chart">
+                            <canvas id="mc-chart"></canvas>
+                        </div>
+                        <div class="montecarlo-result" id="mc-result" style="display: none;">
+                            <div class="result-card">
+                                <div class="result-label">期权价格</div>
+                                <div class="result-value" id="mc-price">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">标准误差</div>
+                                <div class="result-value" id="mc-stderr">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">95%置信区间</div>
+                                <div class="result-value" id="mc-ci">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">计算时间</div>
+                                <div class="result-value" id="mc-time">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-backtest">
+                    <div class="backtest-container">
+                        <div class="backtest-controls">
+                            <div class="input-group">
+                                <label>开始日期</label>
+                                <input type="date" id="bt-start-date" value="2024-01-01">
+                            </div>
+                            <div class="input-group">
+                                <label>结束日期</label>
+                                <input type="date" id="bt-end-date" value="2024-12-31">
+                            </div>
+                            <div class="input-group">
+                                <label>初始资金</label>
+                                <input type="number" id="bt-initial-cash" value="100000" step="10000">
+                            </div>
+                            <div class="input-group">
+                                <label>交易策略</label>
+                                <select id="bt-strategy">
+                                    <option value="delta_neutral">Delta中性对冲</option>
+                                    <option value="long_call">买入认购期权</option>
+                                    <option value="covered_call">备兑认购期权</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label>目标Delta</label>
+                                <input type="number" id="bt-delta-target" value="0.0" step="0.1">
+                            </div>
+                            <div class="input-group">
+                                <label>Delta容差</label>
+                                <input type="number" id="bt-delta-tolerance" value="0.1" step="0.05">
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-success" id="bt-run-btn">▶ 运行回测</button>
+                        </div>
+                        <div class="backtest-result" id="bt-result" style="display: none;">
+                            <div class="result-card" id="bt-total-return-card">
+                                <div class="result-label">总收益率</div>
+                                <div class="result-value" id="bt-total-return">--</div>
+                            </div>
+                            <div class="result-card" id="bt-total-pnl-card">
+                                <div class="result-label">总盈亏</div>
+                                <div class="result-value" id="bt-total-pnl">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">夏普比率</div>
+                                <div class="result-value" id="bt-sharpe">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">最大回撤</div>
+                                <div class="result-value" id="bt-max-dd">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">胜率</div>
+                                <div class="result-value" id="bt-winrate">--</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-label">交易次数</div>
+                                <div class="result-value" id="bt-trades">--</div>
+                            </div>
+                        </div>
+                        <div class="backtest-chart">
+                            <canvas id="bt-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-arbitrage">
+                    <div class="backtest-container">
+                        <div class="info-card">
+                            <div class="panel-title">套利检测统计</div>
+                            <div class="arbitrage-stats">
+                                <div class="info-item">
+                                    <div class="info-label">总检测次数</div>
+                                    <div class="info-value" id="arb-total">--</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">PCP违反次数</div>
+                                    <div class="info-value" id="arb-pcp">--</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">蝶式价差违反</div>
+                                    <div class="info-value" id="arb-butterfly">--</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">当前告警数</div>
+                                    <div class="info-value" id="arb-current">--</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="info-card">
+                            <div class="panel-title">实时套利机会</div>
+                            <div class="arbitrage-list" id="arbitrage-list">
+                                <div style="color: #8892b0; text-align: center; padding: 20px;">暂无套利机会</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="info-card">
+                <div class="panel-title">曲面统计</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">最小IV</div>
+                        <div class="info-value" id="iv-min">--</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">最大IV</div>
+                        <div class="info-value" id="iv-max">--</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">ATM IV</div>
+                        <div class="info-value" id="iv-atm">--</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">平均IV</div>
+                        <div class="info-value" id="iv-avg">--</div>
+                    </div>
+                </div>
+                
+                <div class="selected-point-card" id="selected-point-card">
+                    <div style="font-weight: bold; color: #ffc800; margin-bottom: 8px;">📍 选中点信息</div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">行权价/现货</div>
+                            <div class="info-value" id="selected-moneyness">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">到期时间</div>
+                            <div class="info-value" id="selected-tenor">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">波动率</div>
+                            <div class="info-value" id="selected-iv">--</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">行权价</div>
+                            <div class="info-value" id="selected-strike">--</div>
+                        </div>
+                    </div>
+                    <div class="chart-container" id="point-history-chart"></div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="panel-title">渲染设置</div>
+                <div class="control-row">
+                    <span class="control-label">显示模式</span>
+                    <div class="btn-group">
+                        <button class="btn active" onclick="setRenderMode('surface')">曲面</button>
+                        <button class="btn" onclick="setRenderMode('wireframe')">线框</button>
+                        <button class="btn" onclick="setRenderMode('points')">点云</button>
+                    </div>
+                </div>
+                <div class="control-row">
+                    <span class="control-label">显示原始点</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="show-raw-points" checked onchange="toggleRawPoints()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="control-row">
+                    <span class="control-label">自动旋转</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-rotate" onchange="toggleAutoRotate()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="panel-title">性能指标</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Draw Call</div>
+                        <div class="info-value" id="draw-calls">1</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">三角形数</div>
+                        <div class="info-value" id="tri-count">--</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">实例数量</div>
+                        <div class="info-value" id="instance-count">--</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">帧时间</div>
+                        <div class="info-value" id="frame-time">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <div class="panel-title">标的走势</div>
+                <canvas id="underlying-chart" class="chart-container"></canvas>
+            </div>
+        </div>
+
+        <div class="controls-panel">
+            <div class="control-row">
+                <span class="control-label">时间回放</span>
+                <div class="slider-container">
+                    <input type="range" id="history-slider" min="0" max="0" value="0" disabled>
+                    <span id="history-value" class="slider-value">实时</span>
+                </div>
+            </div>
+            <div class="control-row">
+                <span class="control-label">自动回放</span>
+                <div class="btn-group">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="auto-play-toggle" onchange="toggleAutoPlay()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="auto-play-label">已禁用</span>
+                    <button class="btn" onclick="resetToRealtime()">重置为实时</button>
+                    <button class="btn btn-success" onclick="exportData()">导出数据</button>
+                </div>
+                <span class="control-label">回放速度</span>
+                <div class="slider-container" style="flex: 0.5;">
+                    <input type="range" id="speed-slider" min="1" max="10" value="3" oninput="updateSpeed()">
+                    <span id="speed-value" class="slider-value">3x</span>
+                </div>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar" style="width: 100%"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const state = {
+            ws: null,
+            currentSurface: null,
+            surfaceHistory: [],
+            underlyingPrice: 4.0,
+            underlyingSymbol: '510300',
+            underlyingHistory: [],
+            selectedPoint: null,
+            selectedPointHistory: [],
+            renderMode: 'surface',
+            isHistoryMode: false,
+            historyIndex: 0,
+            autoPlay: false,
+            autoPlayInterval: null,
+            playbackSpeed: 3,
+            showRawPoints: true,
+            autoRotate: false
+        };
+
+        const tenorNames = ['1D', '7D', '14D', '21D', '1M', '2M', '3M', '6M', '9M', '1Y'];
+        const viridisColors = [
+            [0.267, 0.004, 0.329], [0.283, 0.141, 0.458], [0.254, 0.265, 0.530],
+            [0.207, 0.372, 0.553], [0.164, 0.471, 0.558], [0.128, 0.567, 0.551],
+            [0.135, 0.659, 0.518], [0.267, 0.749, 0.441], [0.478, 0.821, 0.318],
+            [0.741, 0.873, 0.150], [0.993, 0.906, 0.144], [0.938, 0.976, 0.130]
+        ];
+
+        let scene, camera, renderer, controls;
+        let surfaceMesh, rawPointsMesh, gridHelper;
+        let dummy = new THREE.Object3D();
+        let color = new THREE.Color();
+        let frameCount = 0;
+        let lastFpsUpdate = performance.now();
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            scene.fog = new THREE.Fog(0x0a0a1a, 10, 30);
+
+            camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
+            camera.position.set(4, 3, 4);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 2;
+            controls.maxDistance = 15;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            const pointLight1 = new THREE.PointLight(0x00d4ff, 0.5, 20);
+            pointLight1.position.set(-5, 3, -5);
+            scene.add(pointLight1);
+
+            const pointLight2 = new THREE.PointLight(0x00ff88, 0.5, 20);
+            pointLight2.position.set(5, 3, 5);
+            scene.add(pointLight2);
+
+            gridHelper = new THREE.GridHelper(8, 16, 0x333366, 0x222244);
+            gridHelper.position.y = -0.1;
+            scene.add(gridHelper);
+
+            const axesHelper = new THREE.AxesHelper(2);
+            axesHelper.position.set(-2, -0.09, -2);
+            scene.add(axesHelper);
+
+            createLabels();
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('click', onMouseClick);
+
+            animate();
+        }
+
+        function createLabels() {
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'axis-label';
+            labelDiv.style.left = '50%';
+            labelDiv.style.bottom = '20px';
+            labelDiv.textContent = '行权价/现货价 (Moneyness)';
+            document.querySelector('.main-view').appendChild(labelDiv);
+
+            const labelDiv2 = document.createElement('div');
+            labelDiv2.className = 'axis-label';
+            labelDiv2.style.left = '10px';
+            labelDiv2.style.bottom = '50%';
+            labelDiv2.style.transform = 'rotate(-90deg)';
+            labelDiv2.style.transformOrigin = 'left center';
+            labelDiv2.textContent = '到期时间';
+            document.querySelector('.main-view').appendChild(labelDiv2);
+
+            const labelDiv3 = document.createElement('div');
+            labelDiv3.className = 'axis-label';
+            labelDiv3.style.right = '10px';
+            labelDiv3.style.top = '50%';
+            labelDiv3.style.transform = 'rotate(90deg)';
+            labelDiv3.style.transformOrigin = 'right center';
+            labelDiv3.textContent = '隐含波动率';
+            document.querySelector('.main-view').appendChild(labelDiv3);
+        }
+
+        function colorForValue(value, min, max) {
+            const t = (value - min) / (max - min);
+            const idx = Math.min(viridisColors.length - 2, Math.max(0, t * (viridisColors.length - 1)));
+            const f = idx - Math.floor(idx);
+            const c1 = viridisColors[Math.floor(idx)];
+            const c2 = viridisColors[Math.ceil(idx)];
+            return [
+                c1[0] * (1 - f) + c2[0] * f,
+                c1[1] * (1 - f) + c2[1] * f,
+                c1[2] * (1 - f) + c2[2] * f
+            ];
+        }
+
+        function createSurface(surface) {
+            if (surfaceMesh) {
+                scene.remove(surfaceMesh);
+                surfaceMesh.geometry.dispose();
+                surfaceMesh.material.dispose();
+            }
+
+            const x = surface.moneyness_grid;
+            const y = surface.tenor_grid;
+            const z = surface.iv_grid;
+
+            const xMin = x[0], xMax = x[x.length - 1];
+            const yMin = y[0], yMax = y[y.length - 1];
+            const zMin = 0.05, zMax = 0.8;
+
+            const xScale = 4 / (xMax - xMin);
+            const yScale = 4 / (yMax - yMin);
+            const zScale = 2 / (zMax - zMin);
+
+            const nx = x.length;
+            const ny = y.length;
+            const numInstances = (nx - 1) * (ny - 1) * 2;
+
+            const geometry = new THREE.PlaneGeometry(1, 1);
+            const material = new THREE.MeshStandardMaterial({
+                metalness: 0.3,
+                roughness: 0.6,
+                side: THREE.DoubleSide
+            });
+
+            surfaceMesh = new THREE.InstancedMesh(geometry, material, numInstances);
+            surfaceMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            surfaceMesh.castShadow = true;
+            surfaceMesh.receiveShadow = true;
+
+            const colors = new Float32Array(numInstances * 3);
+            const positions = [];
+
+            let instanceIdx = 0;
+            for (let j = 0; j < ny - 1; j++) {
+                for (let i = 0; i < nx - 1; i++) {
+                    const x0 = (x[i] - xMin) * xScale - 2;
+                    const x1 = (x[i + 1] - xMin) * xScale - 2;
+                    const y0 = (y[j] - yMin) * yScale - 2;
+                    const y1 = (y[j + 1] - yMin) * yScale - 2;
+                    
+                    const z00 = (z[j][i] - zMin) * zScale;
+                    const z10 = (z[j][i + 1] - zMin) * zScale;
+                    const z01 = (z[j + 1][i] - zMin) * zScale;
+                    const z11 = (z[j + 1][i + 1] - zMin) * zScale;
+
+                    const dx = x1 - x0;
+                    const dy = y1 - y0;
+
+                    const cx = (x0 + x1) / 2;
+                    const cy = (y0 + y1) / 2;
+
+                    const zAvg1 = (z00 + z10 + z01) / 3;
+                    const col1 = colorForValue(zAvg1 + zMin, zMin, zMax);
+
+                    dummy.position.set(cx + dx/6, zAvg1, cy + dy/6);
+                    dummy.scale.set(dx / Math.sqrt(2), 1, dy / Math.sqrt(2));
+                    dummy.rotation.y = -Math.PI / 4;
+                    dummy.updateMatrix();
+                    surfaceMesh.setMatrixAt(instanceIdx, dummy.matrix);
+
+                    colors[instanceIdx * 3] = col1[0];
+                    colors[instanceIdx * 3 + 1] = col1[1];
+                    colors[instanceIdx * 3 + 2] = col1[2];
+
+                    positions.push({
+                        idx: instanceIdx,
+                        moneyness: x[i],
+                        tenor: y[j],
+                        iv: z[j][i],
+                        worldX: cx,
+                        worldZ: cy,
+                        worldY: zAvg1
+                    });
+
+                    instanceIdx++;
+
+                    const zAvg2 = (z10 + z11 + z01) / 3;
+                    const col2 = colorForValue(zAvg2 + zMin, zMin, zMax);
+
+                    dummy.position.set(cx - dx/6, zAvg2, cy - dy/6);
+                    dummy.scale.set(dx / Math.sqrt(2), 1, dy / Math.sqrt(2));
+                    dummy.rotation.y = Math.PI / 4;
+                    dummy.updateMatrix();
+                    surfaceMesh.setMatrixAt(instanceIdx, dummy.matrix);
+
+                    colors[instanceIdx * 3] = col2[0];
+                    colors[instanceIdx * 3 + 1] = col2[1];
+                    colors[instanceIdx * 3 + 2] = col2[2];
+
+                    positions.push({
+                        idx: instanceIdx,
+                        moneyness: x[i + 1],
+                        tenor: y[j + 1],
+                        iv: z[j + 1][i + 1],
+                        worldX: cx,
+                        worldZ: cy,
+                        worldY: zAvg2
+                    });
+
+                    instanceIdx++;
+                }
+            }
+
+            geometry.setAttribute('color', new THREE.InstancedBufferAttribute(colors, 3));
+            material.vertexColors = true;
+
+            surfaceMesh.instanceMatrix.needsUpdate = true;
+            surfaceMesh.userData = { positions, x, y, z, xScale, yScale, zScale, xMin, yMin, zMin };
+            scene.add(surfaceMesh);
+
+            document.getElementById('grid-count').textContent = `${nx} × ${ny}`;
+            document.getElementById('tri-count').textContent = numInstances.toLocaleString();
+            document.getElementById('instance-count').textContent = numInstances.toLocaleString();
+            document.getElementById('legend-max').textContent = (zMax * 100).toFixed(0) + '%';
+            document.getElementById('legend-min').textContent = (zMin * 100).toFixed(0) + '%';
+
+            if (state.showRawPoints && surface.raw_points) {
+                createRawPoints(surface.raw_points, xMin, xMax, yMin, yMax, zMin, zMax, xScale, yScale, zScale);
+            }
+        }
+
+        function createRawPoints(rawPoints, xMin, xMax, yMin, yMax, zMin, zMax, xScale, yScale, zScale) {
+            if (rawPointsMesh) {
+                scene.remove(rawPointsMesh);
+                rawPointsMesh.geometry.dispose();
+                rawPointsMesh.material.dispose();
+            }
+
+            const numPoints = Math.min(rawPoints.length, 500);
+            const geometry = new THREE.SphereGeometry(0.03, 8, 8);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff6b6b });
+
+            rawPointsMesh = new THREE.InstancedMesh(geometry, material, numPoints);
+
+            for (let i = 0; i < numPoints; i++) {
+                const p = rawPoints[i];
+                const wx = (p.moneyness - xMin) * xScale - 2;
+                const wz = (p.time_to_maturity - yMin) * yScale - 2;
+                const wy = (p.implied_volatility - zMin) * zScale;
+
+                dummy.position.set(wx, wy, wz);
+                dummy.scale.set(1, 1, 1);
+                dummy.rotation.set(0, 0, 0);
+                dummy.updateMatrix();
+                rawPointsMesh.setMatrixAt(i, dummy.matrix);
+            }
+
+            rawPointsMesh.instanceMatrix.needsUpdate = true;
+            scene.add(rawPointsMesh);
+        }
+
+        function updateSurface(surface) {
+            state.currentSurface = surface;
+            
+            if (surfaceMesh) {
+                createSurface(surface);
+            }
+
+            updateSurfaceStats(surface);
+        }
+
+        function updateSurfaceStats(surface) {
+            const z = surface.iv_grid;
+            const flatZ = z.flat();
+            const minIv = Math.min(...flatZ);
+            const maxIv = Math.max(...flatZ);
+            const avgIv = flatZ.reduce((a, b) => a + b, 0) / flatZ.length;
+            
+            const atmIdx = Math.floor(z[0].length / 2);
+            const atmIv = z[Math.floor(z.length / 2)][atmIdx];
+            
+            document.getElementById('iv-min').textContent = (minIv * 100).toFixed(2) + '%';
+            document.getElementById('iv-max').textContent = (maxIv * 100).toFixed(2) + '%';
+            document.getElementById('iv-atm').textContent = (atmIv * 100).toFixed(2) + '%';
+            document.getElementById('iv-avg').textContent = (avgIv * 100).toFixed(2) + '%';
+            document.getElementById('build-time').textContent = surface.build_time_ms.toFixed(1) + ' ms';
+        }
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function onMouseMove(event) {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            if (!surfaceMesh) return;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(surfaceMesh);
+
+            if (intersects.length > 0 && surfaceMesh.userData.positions) {
+                const instanceId = intersects[0].instanceId;
+                if (instanceId !== undefined) {
+                    const pos = surfaceMesh.userData.positions[instanceId];
+                    if (pos) {
+                        showTooltip(event, pos);
+                        container.style.cursor = 'pointer';
+                        return;
+                    }
+                }
+            }
+
+            hideTooltip();
+            container.style.cursor = 'grab';
+        }
+
+        function onMouseClick(event) {
+            if (!surfaceMesh || !surfaceMesh.userData.positions) return;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(surfaceMesh);
+
+            if (intersects.length > 0) {
+                const instanceId = intersects[0].instanceId;
+                if (instanceId !== undefined) {
+                    const pos = surfaceMesh.userData.positions[instanceId];
+                    if (pos) {
+                        selectPoint(pos);
+                    }
+                }
+            }
+        }
+
+        function showTooltip(event, pos) {
+            const tooltip = document.getElementById('tooltip');
+            const tenorIdx = Math.round((pos.tenor - state.currentSurface.tenor_grid[0]) / 
+                (state.currentSurface.tenor_grid[state.currentSurface.tenor_grid.length - 1] - 
+                 state.currentSurface.tenor_grid[0]) * (tenorNames.length - 1));
+            const tenorName = tenorNames[Math.max(0, Math.min(tenorNames.length - 1, tenorIdx))];
+
+            tooltip.innerHTML = `
+                <div class="tooltip-title">波动率曲面点</div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">行权价/现货:</span>
+                    <span class="tooltip-value">${pos.moneyness.toFixed(3)}</span>
+                </div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">到期时间:</span>
+                    <span class="tooltip-value">${tenorName}</span>
+                </div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">行权价格:</span>
+                    <span class="tooltip-value">${(pos.moneyness * state.underlyingPrice).toFixed(3)}</span>
+                </div>
+                <div class="tooltip-row">
+                    <span class="tooltip-label">隐含波动率:</span>
+                    <span class="tooltip-value">${(pos.iv * 100).toFixed(2)}%</span>
+                </div>
+            `;
+
+            tooltip.style.display = 'block';
+            tooltip.style.left = (event.clientX + 15) + 'px';
+            tooltip.style.top = (event.clientY + 15) + 'px';
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').style.display = 'none';
+        }
+
+        function selectPoint(pos) {
+            state.selectedPoint = pos;
+            
+            const card = document.getElementById('selected-point-card');
+            card.classList.add('show');
+            
+            const tenorIdx = Math.round((pos.tenor - state.currentSurface.tenor_grid[0]) / 
+                (state.currentSurface.tenor_grid[state.currentSurface.tenor_grid.length - 1] - 
+                 state.currentSurface.tenor_grid[0]) * (tenorNames.length - 1));
+            const tenorName = tenorNames[Math.max(0, Math.min(tenorNames.length - 1, tenorIdx))];
+
+            document.getElementById('selected-moneyness').textContent = pos.moneyness.toFixed(3);
+            document.getElementById('selected-tenor').textContent = tenorName;
+            document.getElementById('selected-iv').textContent = (pos.iv * 100).toFixed(2) + '%';
+            document.getElementById('selected-strike').textContent = (pos.moneyness * state.underlyingPrice).toFixed(3);
+
+            updateSelectedPointHistory();
+        }
+
+        function updateSelectedPointHistory() {
+            if (!state.selectedPoint || state.surfaceHistory.length === 0) return;
+
+            const { moneyness } = state.selectedPoint;
+            const history = state.surfaceHistory;
+            
+            const mIdx = Math.round((moneyness - history[0].moneyness_grid[0]) / 
+                (history[0].moneyness_grid[history[0].moneyness_grid.length - 1] - 
+                 history[0].moneyness_grid[0]) * (history[0].moneyness_grid.length - 1));
+            
+            state.selectedPointHistory = history.map(s => {
+                const tIdx = Math.floor(s.tenor_grid.length / 2);
+                const safeMIdx = Math.max(0, Math.min(s.iv_grid[0].length - 1, mIdx));
+                return s.iv_grid[tIdx][safeMIdx];
+            });
+
+            const timestamps = history.map((_, i) => i);
+            
+            const ctx = document.getElementById('point-history-chart');
+            if (ctx && window.pointChart) {
+                window.pointChart.destroy();
+            }
+            
+            if (ctx) {
+                window.pointChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: timestamps,
+                        datasets: [{
+                            label: 'IV',
+                            data: state.selectedPointHistory.map(v => v * 100),
+                            borderColor: 'rgba(255, 200, 0, 1)',
+                            backgroundColor: 'rgba(255, 200, 0, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { display: false },
+                            y: {
+                                ticks: { color: '#8892b0' },
+                                grid: { color: 'rgba(255,255,255,0.1)' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (controls) {
+                controls.autoRotate = state.autoRotate;
+                controls.autoRotateSpeed = 0.5;
+                controls.update();
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+
+            frameCount++;
+            const now = performance.now();
+            if (now - lastFpsUpdate >= 1000) {
+                const fps = frameCount;
+                const frameTime = 1000 / fps;
+                document.getElementById('fps-counter').textContent = fps;
+                document.getElementById('frame-time').textContent = frameTime.toFixed(1) + ' ms';
+                frameCount = 0;
+                lastFpsUpdate = now;
+            }
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function setRenderMode(mode) {
+            state.renderMode = mode;
+            document.querySelectorAll('.btn-group .btn').forEach((btn, idx) => {
+                btn.classList.toggle('active', ['surface', 'wireframe', 'points'][idx] === mode);
+            });
+
+            if (surfaceMesh) {
+                if (mode === 'wireframe') {
+                    surfaceMesh.material.wireframe = true;
+                } else {
+                    surfaceMesh.material.wireframe = false;
+                }
+            }
+        }
+
+        function toggleRawPoints() {
+            state.showRawPoints = document.getElementById('show-raw-points').checked;
+            if (rawPointsMesh) {
+                rawPointsMesh.visible = state.showRawPoints;
+            }
+        }
+
+        function toggleAutoRotate() {
+            state.autoRotate = document.getElementById('auto-rotate').checked;
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            state.ws = new WebSocket(wsUrl);
+            
+            state.ws.onopen = function() {
+                document.getElementById('connection-status').textContent = '已连接';
+                document.getElementById('connection-status').style.color = '#00ff88';
+            };
+            
+            state.ws.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    handleMessage(message);
+                } catch (e) {
+                    console.error('Parse error:', e);
+                }
+            };
+            
+            state.ws.onclose = function() {
+                document.getElementById('connection-status').textContent = '已断开';
+                document.getElementById('connection-status').style.color = '#ff6b6b';
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'initial_snapshot':
+                case 'tick_update':
+                    handleTickUpdate(message.data);
+                    break;
+                case 'surface_history':
+                    state.surfaceHistory = message.data.history;
+                    const slider = document.getElementById('history-slider');
+                    slider.max = Math.max(0, message.data.history.length - 1);
+                    break;
+                case 'montecarlo_result':
+                    handleMonteCarloResult(message.data);
+                    break;
+                case 'backtest_result':
+                    handleBacktestResult(message.data);
+                    break;
+                case 'greeks_data':
+                    state.currentGreeks = message.data;
+                    if (document.getElementById('tab-greeks').classList.contains('active')) {
+                        renderHeatmaps(message.data);
+                    }
+                    break;
+                case 'arbitrage_data':
+                    updateArbitrageDisplay(message.data);
+                    break;
+            }
+        }
+
+        function handleTickUpdate(data) {
+            state.underlyingPrice = data.underlying_price;
+            state.underlyingSymbol = data.underlying_symbol;
+            
+            document.getElementById('underlying-symbol').textContent = 
+                `${data.underlying_symbol} ${data.underlying_name}`;
+            document.getElementById('underlying-price').textContent = 
+                data.underlying_price.toFixed(3);
+            
+            if (!state.isHistoryMode && data.surface) {
+                updateSurface(data.surface);
+            }
+
+            if (state.underlyingHistory.length === 0 || 
+                state.underlyingHistory[state.underlyingHistory.length - 1].price !== data.underlying_price) {
+                state.underlyingHistory.push({
+                    timestamp: new Date(data.timestamp),
+                    price: data.underlying_price
+                });
+                if (state.underlyingHistory.length > 100) {
+                    state.underlyingHistory.shift();
+                }
+                updateUnderlyingChart();
+            }
+
+            if (data.greeks) {
+                state.currentGreeks = data.greeks;
+                if (document.getElementById('tab-greeks').classList.contains('active')) {
+                    renderHeatmaps(data.greeks);
+                }
+            }
+
+            if (data.arbitrage) {
+                updateArbitrageDisplay(data.arbitrage);
+            }
+
+            if (state.ws && state.ws.readyState === WebSocket.OPEN && state.surfaceHistory.length === 0) {
+                state.ws.send(JSON.stringify({ type: 'get_surface_history' }));
+            }
+        }
+
+        function updateUnderlyingChart() {
+            const ctx = document.getElementById('underlying-chart');
+            if (!ctx) return;
+            
+            if (window.underlyingChart) {
+                window.underlyingChart.destroy();
+            }
+
+            const labels = state.underlyingHistory.map((_, i) => i);
+            const prices = state.underlyingHistory.map(d => d.price);
+
+            window.underlyingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '价格',
+                        data: prices,
+                        borderColor: 'rgba(0, 212, 255, 1)',
+                        backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            ticks: { color: '#8892b0' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('history-slider').addEventListener('input', function(e) {
+            const index = parseInt(e.target.value);
+            state.historyIndex = index;
+            
+            if (index === state.surfaceHistory.length - 1 || state.surfaceHistory.length === 0) {
+                state.isHistoryMode = false;
+                document.getElementById('history-value').textContent = '实时';
+            } else {
+                state.isHistoryMode = true;
+                document.getElementById('history-value').textContent = `历史 #${index}`;
+                
+                if (state.surfaceHistory[index]) {
+                    updateSurface(state.surfaceHistory[index]);
+                }
+            }
+            
+            updateProgressBar();
+        });
+
+        function toggleAutoPlay() {
+            state.autoPlay = document.getElementById('auto-play-toggle').checked;
+            document.getElementById('auto-play-label').textContent = 
+                state.autoPlay ? '已启用' : '已禁用';
+            
+            if (state.autoPlay) {
+                startAutoPlay();
+            } else {
+                stopAutoPlay();
+            }
+        }
+
+        function startAutoPlay() {
+            stopAutoPlay();
+            
+            const interval = 1000 / state.playbackSpeed;
+            state.autoPlayInterval = setInterval(() => {
+                const slider = document.getElementById('history-slider');
+                let current = parseInt(slider.value);
+                const max = parseInt(slider.max);
+                
+                current++;
+                if (current > max) {
+                    current = 0;
+                }
+                
+                slider.value = current;
+                slider.dispatchEvent(new Event('input'));
+            }, interval);
+        }
+
+        function stopAutoPlay() {
+            if (state.autoPlayInterval) {
+                clearInterval(state.autoPlayInterval);
+                state.autoPlayInterval = null;
+            }
+        }
+
+        function updateSpeed() {
+            state.playbackSpeed = parseInt(document.getElementById('speed-slider').value);
+            document.getElementById('speed-value').textContent = state.playbackSpeed + 'x';
+            
+            if (state.autoPlay) {
+                startAutoPlay();
+            }
+        }
+
+        function resetToRealtime() {
+            const slider = document.getElementById('history-slider');
+            slider.value = slider.max;
+            slider.dispatchEvent(new Event('input'));
+        }
+
+        function updateProgressBar() {
+            const slider = document.getElementById('history-slider');
+            const max = parseInt(slider.max) || 1;
+            const current = parseInt(slider.value) || 0;
+            const percent = (current / max) * 100;
+            document.getElementById('progress-bar').style.width = percent + '%';
+        }
+
+        function exportData() {
+            if (!state.currentSurface) return;
+            
+            const data = {
+                surface: state.currentSurface,
+                history: state.surfaceHistory.slice(-50),
+                underlying: state.underlyingHistory
+            };
+            
+            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `volatility_surface_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        let heatmapCharts = {};
+        let mcChart = null;
+        let btChart = null;
+        let mcWorker = null;
+
+        function initTabs() {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    
+                    btn.classList.add('active');
+                    document.getElementById(`tab-${tabId}`).classList.add('active');
+                    
+                    if (tabId === 'greeks' && state.currentGreeks) {
+                        renderHeatmaps(state.currentGreeks);
+                    } else if (tabId === 'montecarlo' && !mcChart) {
+                        initMonteCarloChart();
+                    } else if (tabId === 'backtest' && !btChart) {
+                        initBacktestChart();
+                    }
+                });
+            });
+        }
+
+        function renderHeatmap(canvasId, dataGrid, xLabels, yLabels, colorScheme) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            const padding = { top: 20, right: 40, bottom: 40, left: 50 };
+            const chartWidth = canvas.width - padding.left - padding.right;
+            const chartHeight = canvas.height - padding.top - padding.bottom;
+            
+            const nRows = dataGrid.length;
+            const nCols = dataGrid[0].length;
+            const cellWidth = chartWidth / nCols;
+            const cellHeight = chartHeight / nRows;
+            
+            const minVal = Math.min(...dataGrid.flat());
+            const maxVal = Math.max(...dataGrid.flat());
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < nRows; i++) {
+                for (let j = 0; j < nCols; j++) {
+                    const value = dataGrid[i][j];
+                    const normalized = (value - minVal) / (maxVal - minVal || 1);
+                    
+                    if (colorScheme === 'redblue') {
+                        const hue = normalized < 0.5 ? 240 * (1 - normalized * 2) : 0 + 60 * (normalized - 0.5) * 2;
+                        ctx.fillStyle = `hsla(${hue}, 70%, 50%, 0.9)`;
+                    } else if (colorScheme === 'greenred') {
+                        const hue = normalized < 0.5 ? 120 * (1 - normalized * 2) : 0 + 40 * (normalized - 0.5) * 2;
+                        ctx.fillStyle = `hsla(${hue}, 70%, 50%, 0.9)`;
+                    } else {
+                        const hue = 200 - normalized * 160;
+                        ctx.fillStyle = `hsla(${hue}, 70%, 50%, 0.9)`;
+                    }
+                    
+                    ctx.fillRect(
+                        padding.left + j * cellWidth,
+                        padding.top + i * cellHeight,
+                        cellWidth - 1,
+                        cellHeight - 1
+                    );
+                }
+            }
+            
+            ctx.fillStyle = '#8892b0';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            
+            for (let j = 0; j < nCols; j += Math.max(1, Math.floor(nCols / 6))) {
+                const x = padding.left + (j + 0.5) * cellWidth;
+                const y = canvas.height - padding.bottom + 15;
+                ctx.fillText(xLabels[j].toFixed(2), x, y);
+            }
+            
+            ctx.save();
+            ctx.translate(15, padding.top + chartHeight / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            for (let i = 0; i < nRows; i += Math.max(1, Math.floor(nRows / 6))) {
+                const y = (i + 0.5) * cellHeight;
+                ctx.fillText((yLabels[i] * 365).toFixed(0) + 'd', 0, y);
+            }
+            ctx.restore();
+            
+            const gradient = ctx.createLinearGradient(canvas.width - 25, padding.top, canvas.width - 25, padding.top + chartHeight);
+            for (let i = 0; i <= 1; i += 0.1) {
+                const hue = 200 - i * 160;
+                gradient.addColorStop(i, `hsla(${hue}, 70%, 50%, 0.9)`);
+            }
+            ctx.fillStyle = gradient;
+            ctx.fillRect(canvas.width - 20, padding.top, 10, chartHeight);
+            
+            ctx.fillStyle = '#8892b0';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(maxVal.toFixed(3), canvas.width - 8, padding.top + 8);
+            ctx.fillText(minVal.toFixed(3), canvas.width - 8, padding.top + chartHeight);
+        }
+
+        function renderHeatmaps(greeksData) {
+            const moneynessLabels = greeksData.moneyness_grid;
+            const tenorLabels = greeksData.tenor_grid;
+            
+            renderHeatmap('heatmap-delta', greeksData.delta_grid, moneynessLabels, tenorLabels, 'redblue');
+            renderHeatmap('heatmap-gamma', greeksData.gamma_grid, moneynessLabels, tenorLabels, 'viridis');
+            renderHeatmap('heatmap-vega', greeksData.vega_grid, moneynessLabels, tenorLabels, 'greenred');
+            renderHeatmap('heatmap-theta', greeksData.theta_grid, moneynessLabels, tenorLabels, 'redblue');
+            
+            const now = new Date().toLocaleTimeString();
+            document.getElementById('delta-last-update').textContent = now;
+            document.getElementById('gamma-last-update').textContent = now;
+            document.getElementById('vega-last-update').textContent = now;
+            document.getElementById('theta-last-update').textContent = now;
+        }
+
+        function updateArbitrageDisplay(arbitrageData) {
+            if (!arbitrageData) return;
+            
+            const { opportunities, stats } = arbitrageData;
+            
+            document.getElementById('arb-total').textContent = stats.total_opportunities || 0;
+            document.getElementById('arb-pcp').textContent = stats.pcp_violations || 0;
+            document.getElementById('arb-butterfly').textContent = stats.butterfly_violations || 0;
+            document.getElementById('arb-current').textContent = opportunities?.length || 0;
+            
+            const badge = document.getElementById('arbitrage-alert-badge');
+            if (opportunities && opportunities.length > 0) {
+                badge.style.display = 'flex';
+                badge.textContent = opportunities.length;
+            } else {
+                badge.style.display = 'none';
+            }
+            
+            const listEl = document.getElementById('arbitrage-list');
+            if (!opportunities || opportunities.length === 0) {
+                listEl.innerHTML = '<div style="color: #8892b0; text-align: center; padding: 20px;">暂无套利机会</div>';
+                return;
+            }
+            
+            listEl.innerHTML = opportunities.slice(0, 10).map(opp => `
+                <div class="arbitrage-item">
+                    <div class="arbitrage-item-header">
+                        <span class="arbitrage-type">${opp.type === 'put_call_parity' ? 'Put-Call Parity' : '蝶式价差'}</span>
+                        <span class="arbitrage-severity">严重度: ${(opp.severity * 100).toFixed(1)}%</span>
+                    </div>
+                    <div class="arbitrage-details">
+                        ${opp.description}<br>
+                        ${opp.strike ? `行权价: ${opp.strike.toFixed(3)}, ` : ''}
+                        到期: ${(opp.time_to_maturity * 365).toFixed(0)}天
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function initMonteCarloChart() {
+            const ctx = document.getElementById('mc-chart').getContext('2d');
+            mcChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: '蒙特卡洛模拟路径 (前100条)', color: '#8892b0' }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        function runMonteCarlo() {
+            const params = {
+                S0: parseFloat(document.getElementById('mc-s0').value),
+                K: parseFloat(document.getElementById('mc-k').value),
+                T: parseFloat(document.getElementById('mc-t').value),
+                r: parseFloat(document.getElementById('mc-r').value),
+                q: 0,
+                sigma: parseFloat(document.getElementById('mc-sigma').value),
+                optionType: document.getElementById('mc-type').value,
+                nPaths: parseInt(document.getElementById('mc-paths').value),
+                nSteps: parseInt(document.getElementById('mc-steps').value),
+                calcGreeks: true
+            };
+            
+            document.getElementById('mc-start-btn').disabled = true;
+            document.getElementById('mc-stop-btn').disabled = false;
+            document.getElementById('mc-progress-container').style.display = 'block';
+            document.getElementById('mc-progress-bar').style.width = '0%';
+            
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify({
+                    type: 'run_montecarlo',
+                    params: params
+                }));
+            } else {
+                if (mcWorker) mcWorker.terminate();
+                mcWorker = new Worker('static/mc_worker.js');
+                
+                mcWorker.onmessage = function(e) {
+                    const msg = e.data;
+                    if (msg.type === 'progress') {
+                        document.getElementById('mc-progress-bar').style.width = msg.progress + '%';
+                    } else if (msg.type === 'complete') {
+                        handleMonteCarloResult(msg.result);
+                    } else if (msg.type === 'error') {
+                        alert('模拟错误: ' + msg.error);
+                        resetMonteCarloButtons();
+                    }
+                };
+                
+                mcWorker.postMessage({ action: 'start', params: params });
+            }
+        }
+
+        function handleMonteCarloResult(result) {
+            document.getElementById('mc-price').textContent = result.result.price.toFixed(4);
+            document.getElementById('mc-stderr').textContent = result.result.stdError.toFixed(6);
+            document.getElementById('mc-ci').textContent = `[${result.result.confidenceInterval[0].toFixed(4)}, ${result.result.confidenceInterval[1].toFixed(4)}]`;
+            document.getElementById('mc-time').textContent = result.calculation_time_ms.toFixed(0) + 'ms';
+            document.getElementById('mc-result').style.display = 'grid';
+            
+            if (mcChart && result.result.paths) {
+                const labels = Array.from({ length: result.result.nSteps + 1 }, (_, i) => i);
+                const colors = ['#00d4ff', '#00ff88', '#ff6b6b', '#ffc800', '#9c27b0'];
+                
+                mcChart.data.labels = labels;
+                mcChart.data.datasets = result.result.paths.slice(0, 50).map((path, i) => ({
+                    data: path,
+                    borderColor: colors[i % colors.length],
+                    borderWidth: 1,
+                    pointRadius: 0,
+                    opacity: 0.6
+                }));
+                mcChart.update();
+            }
+            
+            resetMonteCarloButtons();
+        }
+
+        function resetMonteCarloButtons() {
+            document.getElementById('mc-start-btn').disabled = false;
+            document.getElementById('mc-stop-btn').disabled = true;
+            document.getElementById('mc-progress-container').style.display = 'none';
+        }
+
+        function stopMonteCarlo() {
+            if (mcWorker) {
+                mcWorker.postMessage({ action: 'stop' });
+                mcWorker.terminate();
+                mcWorker = null;
+            }
+            resetMonteCarloButtons();
+        }
+
+        function initBacktestChart() {
+            const ctx = document.getElementById('bt-chart').getContext('2d');
+            btChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '组合净值',
+                            data: [],
+                            borderColor: '#00d4ff',
+                            backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                            fill: true,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false },
+                    plugins: {
+                        legend: { labels: { color: '#8892b0' } },
+                        title: { display: true, text: '策略回测净值曲线', color: '#8892b0' }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#8892b0', maxTicksLimit: 10 }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        function runBacktest() {
+            const params = {
+                start_date: document.getElementById('bt-start-date').value,
+                end_date: document.getElementById('bt-end-date').value,
+                initial_cash: parseFloat(document.getElementById('bt-initial-cash').value),
+                strategy: document.getElementById('bt-strategy').value,
+                delta_target: parseFloat(document.getElementById('bt-delta-target').value),
+                delta_tolerance: parseFloat(document.getElementById('bt-delta-tolerance').value)
+            };
+            
+            document.getElementById('bt-run-btn').disabled = true;
+            document.getElementById('bt-run-btn').textContent = '⏳ 回测中...';
+            
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify({
+                    type: 'run_backtest',
+                    params: params
+                }));
+            } else {
+                fetch('/api/backtest/run?' + new URLSearchParams(params))
+                    .then(r => r.json())
+                    .then(data => handleBacktestResult(data))
+                    .catch(err => {
+                        alert('回测错误: ' + err.message);
+                        resetBacktestButton();
+                    });
+            }
+        }
+
+        function handleBacktestResult(result) {
+            const btResult = result.result;
+            
+            document.getElementById('bt-total-return').textContent = (btResult.total_return * 100).toFixed(2) + '%';
+            document.getElementById('bt-total-pnl').textContent = '¥' + btResult.total_pnl.toFixed(2);
+            document.getElementById('bt-sharpe').textContent = btResult.sharpe_ratio.toFixed(3);
+            document.getElementById('bt-max-dd').textContent = (btResult.max_drawdown * 100).toFixed(2) + '%';
+            document.getElementById('bt-winrate').textContent = (btResult.win_rate * 100).toFixed(1) + '%';
+            document.getElementById('bt-trades').textContent = btResult.num_trades;
+            
+            const returnCard = document.getElementById('bt-total-return-card');
+            const pnlCard = document.getElementById('bt-total-pnl-card');
+            returnCard.classList.toggle('positive', btResult.total_return >= 0);
+            returnCard.classList.toggle('negative', btResult.total_return < 0);
+            pnlCard.classList.toggle('positive', btResult.total_pnl >= 0);
+            pnlCard.classList.toggle('negative', btResult.total_pnl < 0);
+            
+            document.getElementById('bt-result').style.display = 'grid';
+            
+            if (btChart && btResult.portfolio_values) {
+                btChart.data.labels = btResult.timestamps.map(t => new Date(t).toLocaleDateString());
+                btChart.data.datasets[0].data = btResult.portfolio_values;
+                btChart.update();
+            }
+            
+            resetBacktestButton();
+        }
+
+        function resetBacktestButton() {
+            document.getElementById('bt-run-btn').disabled = false;
+            document.getElementById('bt-run-btn').textContent = '▶ 运行回测';
+        }
+
+        function handleWebSocketMessage(msg) {
+            if (msg.type === 'montecarlo_result') {
+                handleMonteCarloResult(msg.data);
+            } else if (msg.type === 'backtest_result') {
+                handleBacktestResult(msg.data);
+            } else if (msg.type === 'tick_update') {
+                if (msg.data.greeks) {
+                    state.currentGreeks = msg.data.greeks;
+                    if (document.getElementById('tab-greeks').classList.contains('active')) {
+                        renderHeatmaps(state.currentGreeks);
+                    }
+                }
+                if (msg.data.arbitrage) {
+                    updateArbitrageDisplay(msg.data.arbitrage);
+                }
+            }
+        }
+
+        window.onload = function() {
+            initThreeJS();
+            connectWebSocket();
+            initTabs();
+            
+            document.getElementById('mc-start-btn').addEventListener('click', runMonteCarlo);
+            document.getElementById('mc-stop-btn').addEventListener('click', stopMonteCarlo);
+            document.getElementById('bt-run-btn').addEventListener('click', runBacktest);
+            
+            fetch('/api/snapshot')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.surface) {
+                        updateSurface(data.surface);
+                    }
+                });
+        };
+
+        window.onbeforeunload = function() {
+            if (state.ws) state.ws.close();
+            stopAutoPlay();
+        };
+    </script>
+</body>
+</html>
