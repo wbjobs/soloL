@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>眼动仪数据平台 - Eye Tracker Platform</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>眼动仪数据平台</h1>
+            <div class="status-bar">
+                <span id="connection-status" class="status-indicator disconnected">
+                    <span class="status-dot"></span>
+                    <span class="status-text">未连接</span>
+                </span>
+                <span id="data-rate" class="data-rate">-- 点/秒</span>
+                <span id="uptime" class="uptime">运行时间: --</span>
+            </div>
+        </header>
+
+        <nav class="app-nav">
+            <button class="nav-btn active" data-view="realtime">实时监控</button>
+            <button class="nav-btn" data-view="analysis">离线分析</button>
+            <button class="nav-btn" data-view="settings">设置</button>
+        </nav>
+
+        <main class="app-main">
+            <section id="realtime-view" class="view active">
+                <div class="controls-bar">
+                    <div class="control-group">
+                        <label>显示模式:</label>
+                        <button id="btn-heatmap" class="mode-btn active">热力图</button>
+                        <button id="btn-trajectory" class="mode-btn">轨迹图</button>
+                        <button id="btn-both" class="mode-btn">叠加</button>
+                    </div>
+                    <div class="control-group">
+                        <label>热力图衰减:</label>
+                        <input type="range" id="heatmap-decay" min="1" max="10" value="5">
+                        <span id="decay-value">5s</span>
+                    </div>
+                    <div class="control-group">
+                        <label>轨迹长度:</label>
+                        <input type="range" id="trail-length" min="10" max="200" value="50">
+                        <span id="trail-value">50</span>
+                    </div>
+                    <div class="control-group">
+                        <button id="btn-clear" class="action-btn">清空画布</button>
+                    </div>
+                </div>
+
+                <div class="visualization-container">
+                    <div class="main-canvas-container">
+                        <canvas id="main-canvas" width="1920" height="1080"></canvas>
+                        <div class="canvas-overlay">
+                            <div id="cursor-indicator" class="cursor-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>瞳孔直径 (mm)</h3>
+                        <canvas id="pupil-chart" width="800" height="200"></canvas>
+                        <div class="chart-stats">
+                            <span>当前: <strong id="pupil-current">--</strong></span>
+                            <span>平均: <strong id="pupil-avg">--</strong></span>
+                            <span>最小: <strong id="pupil-min">--</strong></span>
+                            <span>最大: <strong id="pupil-max">--</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-label">接收数据包</div>
+                        <div class="stat-value" id="stat-total">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">有效数据点</div>
+                        <div class="stat-value" id="stat-valid">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">过滤数据点</div>
+                        <div class="stat-value" id="stat-filtered">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">连接客户端</div>
+                        <div class="stat-value" id="stat-clients">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="analysis-view" class="view">
+                <div class="analysis-controls">
+                    <div class="control-group">
+                        <label>时间范围:</label>
+                        <input type="datetime-local" id="time-start">
+                        <span>至</span>
+                        <input type="datetime-local" id="time-end">
+                        <button id="btn-load-data" class="action-btn">加载数据</button>
+                        <button id="btn-quick-load" class="action-btn secondary">加载最近5分钟</button>
+                    </div>
+                    <div class="control-group">
+                        <label>AOI工具:</label>
+                        <button id="btn-aoi-rect" class="aoi-tool-btn" data-tool="rectangle">矩形</button>
+                        <button id="btn-aoi-circle" class="aoi-tool-btn" data-tool="circle">圆形</button>
+                        <button id="btn-aoi-polygon" class="aoi-tool-btn" data-tool="polygon">多边形</button>
+                        <button id="btn-aoi-clear" class="action-btn secondary">清除AOI</button>
+                        <button id="btn-analyze" class="action-btn primary">开始分析</button>
+                    </div>
+                </div>
+
+                <div class="analysis-canvas-container">
+                    <canvas id="analysis-canvas" width="1920" height="1080"></canvas>
+                </div>
+
+                <div class="analysis-sidebar">
+                    <h3>兴趣区域 (AOI)</h3>
+                    <div id="aoi-list" class="aoi-list">
+                        <p class="empty-hint">在画布上绘制AOI区域</p>
+                    </div>
+                    
+                    <h3>分析结果</h3>
+                    <div id="analysis-results" class="analysis-results">
+                        <p class="empty-hint">点击"开始分析"获取结果</p>
+                    </div>
+                </div>
+
+                <div id="scanpath-container" class="scanpath-container" style="display: none;">
+                    <h3>扫描路径</h3>
+                    <div id="scanpath-list" class="scanpath-list"></div>
+                </div>
+
+                <div id="transition-container" class="transition-container" style="display: none;">
+                    <h3>转移矩阵</h3>
+                    <div id="transition-matrix" class="transition-matrix"></div>
+                </div>
+
+                <div id="sequence-container" class="sequence-container" style="display: none;">
+                    <h3>频繁注视序列 (PrefixSpan)</h3>
+                    <div class="sequence-controls">
+                        <label>最小支持度: <input type="number" id="min-support" value="0.05" min="0.01" max="1" step="0.01" style="width:60px;"></label>
+                        <label>最大序列长度: <input type="number" id="max-pattern-length" value="10" min="2" max="20" style="width:50px;"></label>
+                        <button id="btn-mine-sequence" class="action-btn primary">挖掘频繁序列</button>
+                    </div>
+                    <div id="sequence-stats" class="sequence-stats"></div>
+                    <div id="sankey-container" class="sankey-container"></div>
+                    <div id="pattern-list" class="pattern-list"></div>
+                </div>
+
+                <div id="replay-container" class="replay-container" style="display: none;">
+                    <h3>轨迹回放</h3>
+                    <div class="replay-controls">
+                        <button id="btn-replay-play" class="action-btn">播放</button>
+                        <button id="btn-replay-pause" class="action-btn">暂停</button>
+                        <button id="btn-replay-stop" class="action-btn">停止</button>
+                        <label>速度: 
+                            <select id="replay-speed">
+                                <option value="0.5">0.5x</option>
+                                <option value="1" selected>1x</option>
+                                <option value="2">2x</option>
+                                <option value="5">5x</option>
+                                <option value="10">10x</option>
+                            </select>
+                        </label>
+                        <button id="btn-replay-close" class="action-btn secondary">关闭回放</button>
+                    </div>
+                    <div class="replay-progress">
+                        <input type="range" id="replay-progress-bar" min="0" max="100" value="0" style="width: 100%;">
+                        <span id="replay-time">0%</span>
+                    </div>
+                    <div class="replay-canvas-container">
+                        <canvas id="replay-canvas" width="1920" height="1080"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="settings-view" class="view">
+                <div class="settings-container">
+                    <div class="settings-card">
+                        <h3>服务器配置</h3>
+                        <div class="form-group">
+                            <label>WebSocket地址</label>
+                            <input type="text" id="ws-url" value="ws://localhost:8080">
+                        </div>
+                        <div class="form-group">
+                            <label>API地址</label>
+                            <input type="text" id="api-url" value="http://localhost:3001">
+                        </div>
+                        <div class="form-group">
+                            <label>屏幕宽度 (px)</label>
+                            <input type="number" id="screen-width" value="1920">
+                        </div>
+                        <div class="form-group">
+                            <label>屏幕高度 (px)</label>
+                            <input type="number" id="screen-height" value="1080">
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>显示配置</h3>
+                        <div class="form-group">
+                            <label>瞳孔直径阈值 (mm)</label>
+                            <input type="number" id="pupil-threshold" value="0.2" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>热力图半径</label>
+                            <input type="number" id="heatmap-radius" value="50">
+                        </div>
+                        <div class="form-group">
+                            <label>轨迹线宽度</label>
+                            <input type="number" id="trail-width" value="2">
+                        </div>
+                        <div class="form-group">
+                            <label>显示网格</label>
+                            <input type="checkbox" id="show-grid" checked>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>模拟器</h3>
+                        <p>启动眼动数据模拟器用于测试</p>
+                        <div class="form-group">
+                            <label>运动模式</label>
+                            <select id="sim-pattern">
+                                <option value="reading">阅读模式</option>
+                                <option value="random">随机模式</option>
+                                <option value="horizontal">水平扫描</option>
+                                <option value="circular">圆周运动</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>采样率 (Hz)</label>
+                            <input type="number" id="sim-rate" value="250">
+                        </div>
+                        <button id="btn-save-settings" class="action-btn primary">保存设置</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="anomaly-toast" class="anomaly-toast" style="display: none;">
+        <div class="anomaly-toast-icon">⚠️</div>
+        <div class="anomaly-toast-content">
+            <div class="anomaly-toast-title">可能疲劳</div>
+            <div class="anomaly-toast-detail" id="anomaly-detail"></div>
+        </div>
+        <button class="anomaly-toast-close" onclick="document.getElementById('anomaly-toast').style.display='none'">✕</button>
+    </div>
+
+    <script src="js/websocketClient.js"></script>
+    <script src="js/heatmap.js"></script>
+    <script src="js/trajectory.js"></script>
+    <script src="js/pupilChart.js"></script>
+    <script src="js/aoiManager.js"></script>
+    <script src="js/sankeyChart.js"></script>
+    <script src="js/trajectoryReplay.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

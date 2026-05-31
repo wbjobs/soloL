@@ -1,0 +1,20 @@
+{
+  "name": "eyetracker-backend",
+  "version": "1.0.0",
+  "description": "Eye tracking data processing backend with UDP, InfluxDB and WebSocket",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "simulate": "node src/simulator.js"
+  },
+  "dependencies": {
+    "@influxdata/influxdb-client": "^1.33.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
