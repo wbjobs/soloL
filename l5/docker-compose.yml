@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: timeline-wars-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - timeline-wars-network
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: timeline-wars-server
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - HEARTBEAT_TIMEOUT=5
+      - RECONNECT_TIMEOUT=30
+      - PLANNING_DURATION=30
+      - SIMULATION_DURATION=5
+    depends_on:
+      - redis
+    networks:
+      - timeline-wars-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+
+networks:
+  timeline-wars-network:
+    driver: bridge
