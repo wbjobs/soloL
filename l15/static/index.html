@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城市建设模拟</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: #1a1a2e;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 10px;
+            min-width: 200px;
+        }
+        #resources {
+            margin-bottom: 15px;
+        }
+        .resource-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        #time {
+            font-size: 14px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+        }
+        #build-menu {
+            margin-top: 15px;
+        }
+        .build-btn {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #4a69bd;
+            color: white;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        .build-btn:hover {
+            background: #6a89cc;
+        }
+        .build-btn.selected {
+            background: #f6b93b;
+            color: #1a1a2e;
+        }
+        .build-btn.demolish {
+            background: #e55039;
+        }
+        #events {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .event {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            animation: slideIn 0.3s ease;
+        }
+        .event.success {
+            border-color: #78e08f;
+        }
+        .event.danger {
+            border-color: #e55039;
+        }
+        .event.info {
+            border-color: #4a69bd;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        #instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+        #trade-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            padding: 10px 20px;
+            background: #f6b93b;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        #trade-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: rgba(26, 26, 46, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            width: 800px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: none;
+        }
+        #trade-panel.active {
+            display: block;
+        }
+        .trade-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: white;
+        }
+        .trade-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.3);
+            padding-bottom: 10px;
+        }
+        .trade-tab {
+            padding: 8px 16px;
+            background: transparent;
+            color: white;
+            border: none;
+            cursor: pointer;
+            opacity: 0.6;
+        }
+        .trade-tab.active {
+            opacity: 1;
+            border-bottom: 2px solid #f6b93b;
+        }
+        .trade-content {
+            display: none;
+        }
+        .trade-content.active {
+            display: block;
+        }
+        .order-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        .form-group select, .form-group input {
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .form-group input {
+            padding: 8px 10px;
+        }
+        .submit-order {
+            grid-column: 1 / -1;
+            padding: 12px;
+            background: #f6b93b;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .orderbook-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .orderbook-side {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .orderbook-side h4 {
+            margin-bottom: 10px;
+        }
+        .orderbook-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 12px;
+        }
+        .orderbook-row.bids {
+            color: #78e08f;
+        }
+        .orderbook-row.asks {
+            color: #e55039;
+        }
+        #price-chart {
+            width: 100%;
+            height: 200px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .my-order {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .my-order.buy {
+            border-left: 3px solid #78e08f;
+        }
+        .my-order.sell {
+            border-left: 3px solid #e55039;
+        }
+        .cancel-order {
+            padding: 5px 10px;
+            background: #e55039;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div id="ui">
+        <div id="time">第 <span id="day">1</span> 天 <span id="hour">06</span>:<span id="minute">00</span></div>
+        <div id="resources">
+            <div class="resource-item">
+                <span>🪵 木材:</span>
+                <span><span id="wood">0</span> (<span id="wood-rate">+0</span>/分)</span>
+            </div>
+            <div class="resource-item">
+                <span>🪨 石头:</span>
+                <span><span id="stone">0</span> (<span id="stone-rate">+0</span>/分)</span>
+            </div>
+            <div class="resource-item">
+                <span>🌾 食物:</span>
+                <span><span id="food">0</span> (<span id="food-rate">+0</span>/分)</span>
+            </div>
+        </div>
+        <div id="build-menu">
+            <button class="build-btn" data-type="road">🛤️ 道路 (石:5)</button>
+            <button class="build-btn" data-type="house">🏠 房屋 (木:20 石:10)</button>
+            <button class="build-btn" data-type="farm">🌾 农场 (木:10 石:5)</button>
+            <button class="build-btn" data-type="sawmill">🪚 锯木厂 (木:30 石:20)</button>
+            <button class="build-btn" data-type="quarry">⛏️ 采石场 (木:20 石:30)</button>
+            <button class="build-btn" data-type="market">🏪 市场 (木:50 石:50 食:10)</button>
+            <button class="build-btn" data-type="trade_post">🏛️ 贸易站 (木:80 石:60 食:30)</button>
+            <button class="build-btn demolish" data-type="demolish">🗑️ 拆除(退半资源)</button>
+        </div>
+    </div>
+
+    <div id="events"></div>
+
+    <button id="trade-toggle">💰 交易市场</button>
+
+    <div id="trade-panel">
+        <span class="trade-close" onclick="toggleTradePanel()">&times;</span>
+        <h2>🏛️ 交易市场</h2>
+        
+        <div class="trade-tabs">
+            <button class="trade-tab active" onclick="switchTradeTab('trade')">交易</button>
+            <button class="trade-tab" onclick="switchTradeTab('orderbook')">订单簿</button>
+            <button class="trade-tab" onclick="switchTradeTab('chart')">价格走势</button>
+            <button class="trade-tab" onclick="switchTradeTab('orders')">我的订单</button>
+        </div>
+
+        <div id="trade-tab-trade" class="trade-content active">
+            <div class="order-form">
+                <div class="form-group">
+                    <label>操作类型</label>
+                    <select id="order-side">
+                        <option value="buy">买入 (花石头)</option>
+                        <option value="sell">卖出 (得石头)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>资源类型</label>
+                    <select id="order-resource">
+                        <option value="wood">🪵 木材</option>
+                        <option value="stone">🪨 石头</option>
+                        <option value="food">🌾 食物</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="number" id="order-qty" min="1" value="10">
+                </div>
+                <div class="form-group">
+                    <label>单价 (石头)</label>
+                    <input type="number" id="order-price" min="1" value="5">
+                </div>
+                <button class="submit-order" onclick="submitOrder()">提交订单</button>
+            </div>
+            <div style="font-size: 12px; opacity: 0.8;">
+                <p>📌 提示：使用石头作为交易货币</p>
+                <p>📌 订单48小时后自动过期</p>
+            </div>
+        </div>
+
+        <div id="trade-tab-orderbook" class="trade-content">
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>选择资源</label>
+                <select id="orderbook-resource" onchange="loadOrderBook()">
+                    <option value="wood">🪵 木材</option>
+                    <option value="stone">🪨 石头</option>
+                    <option value="food">🌾 食物</option>
+                </select>
+            </div>
+            <div class="orderbook-grid">
+                <div class="orderbook-side">
+                    <h4>📈 买单 (买一)</h4>
+                    <div id="bids-list"></div>
+                </div>
+                <div class="orderbook-side">
+                    <h4>📉 卖单 (卖一)</h4>
+                    <div id="asks-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="trade-tab-chart" class="trade-content">
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>选择资源</label>
+                <select id="chart-resource" onchange="loadPriceChart()">
+                    <option value="wood">🪵 木材</option>
+                    <option value="stone">🪨 石头</option>
+                    <option value="food">🌾 食物</option>
+                </select>
+            </div>
+            <canvas id="price-chart"></canvas>
+            <div id="chart-info" style="font-size: 12px; opacity: 0.8;"></div>
+        </div>
+
+        <div id="trade-tab-orders" class="trade-content">
+            <div id="my-orders-list"></div>
+        </div>
+    </div>
+
+    <div id="instructions">
+        鼠标左键: 放置建筑 | 滚轮: 缩放 | 右键拖动: 旋转视角 | WASD/方向键: 移动
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, raycaster, mouse;
+        let tileMeshes = new Map();
+        let gridSize = 200;
+        let selectedBuildingType = null;
+        let hoveredTile = null;
+
+        let resources = { wood: 0, stone: 0, food: 0 };
+        let production = { wood: 0, stone: 0, food: 0 };
+
+        const terrainColors = {
+            grass: 0x7cb342,
+            forest: 0x2e7d32,
+            mountain: 0x757575,
+            water: 0x42a5f5
+        };
+
+        const buildingColors = {
+            road: 0x9e9e9e,
+            house: 0x8d6e63,
+            farm: 0xffcc80,
+            sawmill: 0x5d4037,
+            quarry: 0x546e7a,
+            market: 0xffa726,
+            trade_post: 0x9c27b0
+        };
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb);
+            scene.fog = new THREE.Fog(0x87ceeb, 100, 300);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(50, 50, 50);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(50, 100, 50);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            setupControls();
+            loadGrid();
+            loadResources();
+            connectWebSocket();
+            setupBuildButtons();
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('click', onMouseClick);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+
+            animate();
+        }
+
+        function setupControls() {
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let cameraAngle = { theta: Math.PI / 4, phi: Math.PI / 4 };
+            let cameraDistance = 70;
+            let cameraTarget = { x: 0, z: 0 };
+
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                if (e.button === 2) {
+                    isDragging = true;
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+
+                    cameraAngle.theta -= deltaX * 0.01;
+                    cameraAngle.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngle.phi - deltaY * 0.01));
+
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                    updateCameraPosition();
+                }
+            });
+
+            renderer.domElement.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
+            renderer.domElement.addEventListener('wheel', (e) => {
+                cameraDistance = Math.max(20, Math.min(150, cameraDistance + e.deltaY * 0.1));
+                updateCameraPosition();
+            });
+
+            const keys = {};
+            document.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+            });
+            document.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+
+            function updateCameraPosition() {
+                camera.position.x = cameraTarget.x + cameraDistance * Math.sin(cameraAngle.theta) * Math.cos(cameraAngle.phi);
+                camera.position.y = cameraDistance * Math.sin(cameraAngle.phi);
+                camera.position.z = cameraTarget.z + cameraDistance * Math.cos(cameraAngle.theta) * Math.cos(cameraAngle.phi);
+                camera.lookAt(cameraTarget.x, 0, cameraTarget.z);
+            }
+
+            function moveCamera() {
+                const speed = 1;
+                const forward = new THREE.Vector3(
+                    -Math.sin(cameraAngle.theta),
+                    0,
+                    -Math.cos(cameraAngle.theta)
+                );
+                const right = new THREE.Vector3(
+                    Math.cos(cameraAngle.theta),
+                    0,
+                    -Math.sin(cameraAngle.theta)
+                );
+
+                if (keys['w'] || keys['arrowup']) {
+                    cameraTarget.x += forward.x * speed;
+                    cameraTarget.z += forward.z * speed;
+                }
+                if (keys['s'] || keys['arrowdown']) {
+                    cameraTarget.x -= forward.x * speed;
+                    cameraTarget.z -= forward.z * speed;
+                }
+                if (keys['a'] || keys['arrowleft']) {
+                    cameraTarget.x -= right.x * speed;
+                    cameraTarget.z -= right.z * speed;
+                }
+                if (keys['d'] || keys['arrowright']) {
+                    cameraTarget.x += right.x * speed;
+                    cameraTarget.z += right.z * speed;
+                }
+
+                updateCameraPosition();
+                requestAnimationFrame(moveCamera);
+            }
+            moveCamera();
+
+            updateCameraPosition();
+        }
+
+        async function loadGrid() {
+            const centerX = 100;
+            const centerY = 100;
+            const range = 30;
+            
+            try {
+                const response = await fetch(`/api/grid?startX=${centerX - range}&startY=${centerY - range}&endX=${centerX + range}&endY=${centerY + range}`);
+                const tiles = await response.json();
+                tiles.forEach(createTileMesh);
+            } catch (error) {
+                console.error('Failed to load grid:', error);
+            }
+        }
+
+        function createTileMesh(tile) {
+            const geometry = new THREE.BoxGeometry(0.9, 0.2, 0.9);
+            const material = new THREE.MeshLambertMaterial({ 
+                color: terrainColors[tile.terrain] || 0x7cb342 
+            });
+
+            const tileGroup = new THREE.Group();
+            
+            const base = new THREE.Mesh(geometry, material);
+            base.position.set(tile.x - 100, 0, tile.y - 100);
+            base.receiveShadow = true;
+            base.userData = { tile };
+            tileGroup.add(base);
+
+            if (tile.has_road) {
+                const roadGeometry = new THREE.BoxGeometry(0.8, 0.05, 0.8);
+                const roadMaterial = new THREE.MeshLambertMaterial({ color: buildingColors.road });
+                const road = new THREE.Mesh(roadGeometry, roadMaterial);
+                road.position.set(0, 0.13, 0);
+                road.userData = { tile };
+                tileGroup.add(road);
+            }
+
+            if (tile.building) {
+                const buildingHeight = getBuildingHeight(tile.building.type);
+                const buildingGeometry = new THREE.BoxGeometry(0.7, buildingHeight, 0.7);
+                const buildingMaterial = new THREE.MeshLambertMaterial({ 
+                    color: buildingColors[tile.building.type] || 0x888888 
+                });
+                const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+                building.position.set(0, 0.1 + buildingHeight / 2, 0);
+                building.castShadow = true;
+                building.receiveShadow = true;
+                building.userData = { tile };
+                tileGroup.add(building);
+            }
+
+            if (tile.is_on_fire) {
+                const fireGeometry = new THREE.ConeGeometry(0.2, 0.5, 8);
+                const fireMaterial = new THREE.MeshBasicMaterial({ color: 0xff5722 });
+                const fire = new THREE.Mesh(fireGeometry, fireMaterial);
+                fire.position.set(0, 0.8, 0);
+                fire.userData = { tile, isFire: true };
+                tileGroup.add(fire);
+            }
+
+            tileGroup.position.copy(base.position);
+            scene.add(tileGroup);
+            tileMeshes.set(`${tile.x},${tile.y}`, { group: tileGroup, base, tile });
+        }
+
+        function getBuildingHeight(type) {
+            const heights = {
+                house: 0.8,
+                farm: 0.4,
+                sawmill: 0.6,
+                quarry: 0.5,
+                market: 0.7
+            };
+            return heights[type] || 0.5;
+        }
+
+        async function loadResources() {
+            try {
+                const response = await fetch('/api/resources');
+                const data = await response.json();
+                updateResources(data.resources, data.production);
+            } catch (error) {
+                console.error('Failed to load resources:', error);
+            }
+        }
+
+        function updateResources(res, prod) {
+            resources = res;
+            production = prod;
+            document.getElementById('wood').textContent = res.wood;
+            document.getElementById('stone').textContent = res.stone;
+            document.getElementById('food').textContent = res.food;
+            document.getElementById('wood-rate').textContent = '+' + prod.wood_per_minute;
+            document.getElementById('stone-rate').textContent = '+' + prod.stone_per_minute;
+            document.getElementById('food-rate').textContent = '+' + prod.food_per_minute;
+        }
+
+        function updateTime(gameTime) {
+            document.getElementById('day').textContent = gameTime.day;
+            document.getElementById('hour').textContent = String(gameTime.hour).padStart(2, '0');
+            document.getElementById('minute').textContent = String(gameTime.minute).padStart(2, '0');
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                
+                switch (message.type) {
+                    case 'resource_update':
+                        updateResources(message.payload.resources, message.payload.production);
+                        break;
+                    case 'time_update':
+                        updateTime(message.payload.game_time);
+                        break;
+                    case 'tile_update':
+                        updateTile(message.payload.tile);
+                        break;
+                    case 'event':
+                        showEvent(message.payload.event);
+                        break;
+                }
+            };
+        }
+
+        function updateTile(tile) {
+            const key = `${tile.x},${tile.y}`;
+            if (tileMeshes.has(key)) {
+                const { group } = tileMeshes.get(key);
+                scene.remove(group);
+            }
+            createTileMesh(tile);
+        }
+
+        function showEvent(event) {
+            const eventsDiv = document.getElementById('events');
+            const eventDiv = document.createElement('div');
+            eventDiv.className = `event ${event.severity}`;
+            eventDiv.textContent = event.message;
+            eventsDiv.insertBefore(eventDiv, eventsDiv.firstChild);
+
+            setTimeout(() => {
+                eventDiv.remove();
+            }, 5000);
+        }
+
+        function setupBuildButtons() {
+            document.querySelectorAll('.build-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.build-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    selectedBuildingType = btn.dataset.type;
+                });
+            });
+        }
+
+        function onMouseClick(event) {
+            if (!selectedBuildingType) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                if (object.userData && object.userData.tile) {
+                    const tile = object.userData.tile;
+                    
+                    if (selectedBuildingType === 'demolish') {
+                        demolishBuilding(tile.x, tile.y);
+                    } else {
+                        placeBuilding(tile.x, tile.y, selectedBuildingType);
+                    }
+                }
+            }
+        }
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (hoveredTile) {
+                const key = `${hoveredTile.x},${hoveredTile.y}`;
+                if (tileMeshes.has(key)) {
+                    const { group } = tileMeshes.get(key);
+                    group.children.forEach(child => {
+                        if (child.material) {
+                            child.material.emissive = new THREE.Color(0x000000);
+                        }
+                    });
+                }
+                hoveredTile = null;
+            }
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                if (object.userData && object.userData.tile) {
+                    hoveredTile = object.userData.tile;
+                    const key = `${hoveredTile.x},${hoveredTile.y}`;
+                    if (tileMeshes.has(key)) {
+                        const { group } = tileMeshes.get(key);
+                        group.children.forEach(child => {
+                            if (child.material && !object.userData.isFire) {
+                                child.material.emissive = new THREE.Color(0x333333);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        async function placeBuilding(x, y, type) {
+            try {
+                const response = await fetch('/api/building', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ x, y, building_type: type })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    alert('放置失败: ' + error);
+                }
+            } catch (error) {
+                console.error('Failed to place building:', error);
+            }
+        }
+
+        async function demolishBuilding(x, y) {
+            try {
+                const response = await fetch('/api/building/demolish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ x, y })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    alert('拆除失败: ' + error);
+                }
+            } catch (error) {
+                console.error('Failed to demolish building:', error);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        document.getElementById('trade-toggle').addEventListener('click', toggleTradePanel);
+
+        function toggleTradePanel() {
+            const panel = document.getElementById('trade-panel');
+            panel.classList.toggle('active');
+            if (panel.classList.contains('active')) {
+                loadOrderBook();
+                loadMyOrders();
+            }
+        }
+
+        function switchTradeTab(tabName) {
+            document.querySelectorAll('.trade-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.trade-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('trade-tab-' + tabName).classList.add('active');
+
+            if (tabName === 'orderbook') loadOrderBook();
+            if (tabName === 'chart') loadPriceChart();
+            if (tabName === 'orders') loadMyOrders();
+        }
+
+        async function submitOrder() {
+            const side = document.getElementById('order-side').value;
+            const resource = document.getElementById('order-resource').value;
+            const qty = parseInt(document.getElementById('order-qty').value);
+            const price = parseInt(document.getElementById('order-price').value);
+
+            try {
+                const response = await fetch('/api/trade/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        side: side,
+                        resource_type: resource,
+                        quantity: qty,
+                        unit_price: price
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    alert('下单失败: ' + error);
+                    return;
+                }
+
+                alert('订单提交成功！');
+                loadOrderBook();
+                loadMyOrders();
+            } catch (error) {
+                console.error('Failed to submit order:', error);
+                alert('下单失败');
+            }
+        }
+
+        async function loadOrderBook() {
+            const resource = document.getElementById('orderbook-resource').value;
+            try {
+                const response = await fetch(`/api/trade/orderbook?resource_type=${resource}`);
+                const data = await response.json();
+                renderOrderBook(data);
+            } catch (error) {
+                console.error('Failed to load orderbook:', error);
+            }
+        }
+
+        function renderOrderBook(orderbook) {
+            const bidsList = document.getElementById('bids-list');
+            const asksList = document.getElementById('asks-list');
+            
+            bidsList.innerHTML = orderbook.bids.slice(0, 10).map(bid => 
+                `<div class="orderbook-row bids">
+                    <span>${bid.UnitPrice}</span>
+                    <span>${bid.Quantity}</span>
+                </div>`
+            ).join('');
+
+            asksList.innerHTML = orderbook.asks.slice(0, 10).map(ask => 
+                `<div class="orderbook-row asks">
+                    <span>${ask.UnitPrice}</span>
+                    <span>${ask.Quantity}</span>
+                </div>`
+            ).join('');
+
+            if (orderbook.bids.length === 0) {
+                bidsList.innerHTML = '<div style="opacity:0.5">暂无买单</div>';
+            }
+            if (orderbook.asks.length === 0) {
+                asksList.innerHTML = '<div style="opacity:0.5">暂无卖单</div>';
+            }
+        }
+
+        async function loadPriceChart() {
+            const resource = document.getElementById('chart-resource').value;
+            try {
+                const response = await fetch(`/api/trade/chart?resource_type=${resource}&limit=100`);
+                const data = await response.json();
+                renderPriceChart(data);
+            } catch (error) {
+                console.error('Failed to load price chart:', error);
+            }
+        }
+
+        function renderPriceChart(chartData) {
+            const canvas = document.getElementById('price-chart');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!chartData.points || chartData.points.length < 2) {
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('暂无交易数据', canvas.width / 2, canvas.height / 2);
+                document.getElementById('chart-info').innerHTML = '';
+                return;
+            }
+
+            const points = chartData.points;
+            const prices = points.map(p => p.AvgPrice);
+            const minPrice = Math.min(...prices) * 0.95;
+            const maxPrice = Math.max(...prices) * 1.05;
+            const priceRange = maxPrice - minPrice || 1;
+
+            ctx.strokeStyle = '#f6b93b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            points.forEach((point, i) => {
+                const x = (i / (points.length - 1)) * (canvas.width - 20) + 10;
+                const y = canvas.height - ((point.AvgPrice - minPrice) / priceRange) * (canvas.height - 20) - 10;
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(246, 185, 59, 0.1)';
+            ctx.lineTo(canvas.width - 10, canvas.height - 10);
+            ctx.lineTo(10, canvas.height - 10);
+            ctx.closePath();
+            ctx.fill();
+
+            document.getElementById('chart-info').innerHTML = 
+                `<strong>当前均价: ${chartData.current_avg.toFixed(2)} 石头</strong> | 
+                交易笔数: ${points.length} | 
+                最新: ${points[points.length - 1].Time}`;
+        }
+
+        async function loadMyOrders() {
+            try {
+                const response = await fetch('/api/trade/orders');
+                const orders = await response.json();
+                renderMyOrders(orders);
+            } catch (error) {
+                console.error('Failed to load orders:', error);
+            }
+        }
+
+        function renderMyOrders(orders) {
+            const list = document.getElementById('my-orders-list');
+            
+            if (orders.length === 0) {
+                list.innerHTML = '<div style="opacity:0.5; text-align:center; padding:20px;">暂无订单</div>';
+                return;
+            }
+
+            list.innerHTML = orders.map(order => {
+                const canCancel = order.status === 'open' || order.status === 'partial';
+                return `
+                    <div class="my-order ${order.side}">
+                        <div>
+                            <strong>${order.side === 'buy' ? '买入' : '卖出'}</strong> 
+                            ${order.resource_type} | 
+                            ${order.remaining_qty}/${order.quantity} @ ${order.unit_price} 石头
+                        </div>
+                        <div>
+                            <span style="opacity:0.6; font-size:11px; margin-right:10px;">${order.status}</span>
+                            ${canCancel ? `<button class="cancel-order" onclick="cancelOrder(${order.id})">取消</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function cancelOrder(orderId) {
+            try {
+                const response = await fetch('/api/trade/order/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: orderId })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    alert('取消失败: ' + error);
+                    return;
+                }
+
+                alert('订单已取消');
+                loadMyOrders();
+                loadOrderBook();
+            } catch (error) {
+                console.error('Failed to cancel order:', error);
+                alert('取消失败');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
