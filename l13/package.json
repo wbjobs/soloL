@@ -1,0 +1,13 @@
+{
+  "name": "subtitle-proofread-platform",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:backend": "cd packages/backend && npm install",
+    "install:frontend": "cd packages/frontend && npm install",
+    "dev:backend": "cd packages/backend && npm run start:dev",
+    "dev:frontend": "cd packages/frontend && npm run dev",
+    "build:backend": "cd packages/backend && npm run build",
+    "build:frontend": "cd packages/frontend && npm run build"
+  }
+}

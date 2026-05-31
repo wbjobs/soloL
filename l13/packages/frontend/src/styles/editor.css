@@ -1,0 +1,234 @@
+.block-editor {
+  padding: 12px;
+}
+
+.block-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.block-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.1);
+}
+
+.block-card--active {
+  border-color: var(--color-active-border);
+  background: var(--color-active);
+  box-shadow: 0 2px 12px rgba(22, 119, 255, 0.15);
+}
+
+.block-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.block-card__index {
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: 13px;
+}
+
+.block-card__time {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-family: 'Courier New', monospace;
+}
+
+.block-card__status {
+  margin-left: auto;
+}
+
+.block-card__body {
+  margin-bottom: 8px;
+}
+
+.block-card__original {
+  margin-bottom: 8px;
+}
+
+.block-card__original label,
+.block-card__corrected label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-bottom: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.block-card__original-text {
+  font-size: 13px;
+  color: #999;
+  line-height: 1.5;
+  padding: 4px 8px;
+  background: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+  white-space: pre-wrap;
+}
+
+.block-card__textarea {
+  font-size: 13px !important;
+}
+
+.block-card__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.timeline-adjuster {
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.timeline-adjuster__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.timeline-adjuster__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  width: 48px;
+}
+
+.timeline-adjuster__value {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  min-width: 120px;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.cursor-overlay {
+  padding: 8px 12px;
+}
+
+.cursor-overlay__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cursor-overlay__label {
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.cursor-overlay__field {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.participant-list {
+  padding: 12px;
+}
+
+.participant-list__title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+}
+
+.participant-list__item {
+  padding: 4px 0 !important;
+}
+
+.ai-suggestion-banner {
+  background: linear-gradient(135deg, #fff7e6 0%, #fffbe6 100%);
+  border: 1px solid #ffe58f;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  cursor: default;
+}
+
+.ai-suggestion-banner__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.ai-suggestion-banner__header > .anticon {
+  color: #fa8c16;
+  font-size: 16px;
+}
+
+.ai-suggestion-banner__title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #ad6800;
+}
+
+.ai-suggestion-banner__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-suggestion-banner__comparison {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-suggestion-banner__original,
+.ai-suggestion-banner__suggested {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.ai-suggestion-banner__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.ai-suggestion-banner__text--original {
+  text-decoration: line-through;
+  color: #ff4d4f;
+  background: #fff1f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.ai-suggestion-banner__text--suggested {
+  color: #52c41a;
+  background: #f6ffed;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.ai-suggestion-banner__actions {
+  display: flex;
+  justify-content: flex-start;
+}

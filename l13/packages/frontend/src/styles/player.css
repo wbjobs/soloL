@@ -1,0 +1,43 @@
+.video-player-container {
+  width: 100%;
+  background: #000;
+  position: relative;
+}
+
+.video-player-container .video-js {
+  width: 100%;
+}
+
+.playback-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.waveform-display {
+  width: 100%;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  position: relative;
+}
+
+.waveform-container {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.waveform-region {
+  transition: background-color 0.15s;
+}
+
+.waveform-region:hover {
+  background-color: rgba(74, 144, 217, 0.35) !important;
+}
+
+.region-handle:hover {
+  background-color: rgba(74, 144, 217, 0.5);
+}
