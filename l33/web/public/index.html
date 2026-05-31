@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blender 分布式渲染系统</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Blender 分布式渲染系统</h1>
+            <div class="status-bar">
+                <span id="nodeCount">节点: 0</span>
+                <span id="queueCount">队列: 0</span>
+                <span id="systemStatus" class="status-online">在线</span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="upload-section">
+                <h2>上传场景文件</h2>
+                <div id="dropZone" class="drop-zone">
+                    <div class="drop-icon">📁</div>
+                    <p>拖拽 .blend 文件到此处</p>
+                    <p class="sub-text">或点击选择文件</p>
+                    <input type="file" id="fileInput" accept=".blend" style="display: none;">
+                </div>
+
+                <div id="settingsPanel" class="settings-panel" style="display: none;">
+                    <h3>渲染设置</h3>
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <label>任务名称</label>
+                            <input type="text" id="jobName" placeholder="输入任务名称">
+                        </div>
+                        <div class="setting-item">
+                            <label>优先级 (1-10)</label>
+                            <input type="range" id="priority" min="1" max="10" value="5">
+                            <span id="priorityValue">5</span>
+                        </div>
+                        <div class="setting-item">
+                            <label>起始帧</label>
+                            <input type="number" id="startFrame" value="1" min="1">
+                        </div>
+                        <div class="setting-item">
+                            <label>结束帧</label>
+                            <input type="number" id="endFrame" value="250" min="1">
+                        </div>
+                        <div class="setting-item">
+                            <label>分辨率 X</label>
+                            <input type="number" id="resX" value="1920" min="100">
+                        </div>
+                        <div class="setting-item">
+                            <label>分辨率 Y</label>
+                            <input type="number" id="resY" value="1080" min="100">
+                        </div>
+                        <div class="setting-item">
+                            <label>渲染引擎</label>
+                            <select id="engine">
+                                <option value="CYCLES">Cycles</option>
+                                <option value="EEVEE">EEVEE</option>
+                                <option value="BLENDER_EEVEE">Blender EEVEE</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label>采样数</label>
+                            <input type="number" id="samples" value="128" min="1">
+                        </div>
+                        <div class="setting-item">
+                            <label>帧率 (FPS)</label>
+                            <input type="number" id="fps" value="24" min="1">
+                        </div>
+                    </div>
+                    
+                    <h3 class="section-divider">预算控制</h3>
+                    <div class="settings-grid budget-grid">
+                        <div class="setting-item">
+                            <label>最大渲染帧数</label>
+                            <input type="number" id="maxFrames" value="0" min="0" placeholder="0 = 无限制">
+                        </div>
+                        <div class="setting-item">
+                            <label>最大 GPU 小时</label>
+                            <input type="number" id="maxGpuHours" value="0" min="0" step="0.5" placeholder="0 = 无限制">
+                        </div>
+                        <div class="setting-item">
+                            <label>每 GPU 小时费用 ($)</label>
+                            <input type="number" id="costPerGpuHour" value="0" min="0" step="0.01" placeholder="0 = 免费渲染">
+                        </div>
+                    </div>
+                    <button id="submitBtn" class="submit-btn">开始渲染</button>
+                </div>
+            </div>
+
+            <div class="dashboard-section">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="jobs">任务列表</button>
+                    <button class="tab-btn" data-tab="nodes">节点状态</button>
+                    <button class="tab-btn" data-tab="budgets">预算控制</button>
+                </div>
+
+                <div id="jobsTab" class="tab-content active">
+                    <div id="jobsList" class="jobs-list">
+                        <div class="empty-state">暂无渲染任务</div>
+                    </div>
+                </div>
+
+                <div id="nodesTab" class="tab-content">
+                    <div id="nodesList" class="nodes-list">
+                        <div class="empty-state">暂无连接节点</div>
+                    </div>
+                </div>
+
+                <div id="budgetsTab" class="tab-content">
+                    <div id="budgetsList" class="budgets-list">
+                        <div class="empty-state">暂无预算设置</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="jobModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalJobName">任务详情</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="jobDetails" class="job-details"></div>
+                <h3>帧渲染进度</h3>
+                <div id="framesGrid" class="frames-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

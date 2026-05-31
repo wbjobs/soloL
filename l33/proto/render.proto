@@ -1,0 +1,244 @@
+syntax = "proto3";
+
+package render;
+
+service RenderScheduler {
+  rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
+  rpc ReconnectNode(ReconnectNodeRequest) returns (ReconnectNodeResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc ReportTaskProgress(TaskProgressRequest) returns (TaskProgressResponse);
+  rpc ReportCheckpoint(CheckpointRequest) returns (CheckpointResponse);
+  rpc ReportTaskComplete(TaskCompleteRequest) returns (TaskCompleteResponse);
+  rpc ReportTaskFailed(TaskFailedRequest) returns (TaskFailedResponse);
+  rpc RequestAssets(AssetRequest) returns (AssetResponse);
+  rpc ReportCacheStatus(CacheStatusRequest) returns (CacheStatusResponse);
+}
+
+message GPUInfo {
+  string name = 1;
+  int64 memory_total = 2;
+  int64 memory_free = 3;
+  int32 compute_capability_major = 4;
+  int32 compute_capability_minor = 5;
+}
+
+message HardwareInfo {
+  repeated GPUInfo gpus = 1;
+  int32 cpu_cores = 2;
+  int64 ram_total = 3;
+  string os = 4;
+  string node_name = 5;
+}
+
+message RegisterNodeRequest {
+  string node_id = 1;
+  HardwareInfo hardware = 2;
+  string address = 3;
+}
+
+message RegisterNodeResponse {
+  bool success = 1;
+  string message = 2;
+  int64 heartbeat_interval_ms = 3;
+}
+
+message HeartbeatTask {
+  string job_id = 1;
+  int32 task_id = 2;
+  int32 frame_number = 3;
+  int32 progress_percent = 4;
+  int64 elapsed_ms = 5;
+  int32 last_checkpoint_frame = 6;
+}
+
+message HeartbeatRequest {
+  string node_id = 1;
+  int64 current_load = 2;
+  repeated HeartbeatTask running_tasks = 3;
+  int64 available_ram = 4;
+  int64 available_vram = 5;
+}
+
+message HeartbeatResponse {
+  bool alive = 1;
+  bool should_get_task = 2;
+  int64 next_heartbeat_ms = 3;
+  repeated string cancel_tasks = 4;
+}
+
+message RenderSettings {
+  int32 resolution_x = 1;
+  int32 resolution_y = 2;
+  string engine = 3;
+  int32 samples = 4;
+  string file_format = 5;
+  int32 fps = 6;
+}
+
+message CheckpointInfo {
+  string job_id = 1;
+  int32 task_id = 2;
+  int32 frame_number = 3;
+  int32 checkpoint_frame = 4;
+  string checkpoint_path = 5;
+  int64 timestamp = 6;
+  string node_id = 7;
+  int32 samples_rendered = 8;
+}
+
+message RenderTask {
+  string job_id = 1;
+  int32 task_id = 2;
+  int32 frame_number = 3;
+  string scene_file = 4;
+  RenderSettings settings = 5;
+  int32 priority = 6;
+  string output_path = 7;
+  CheckpointInfo resume_from = 8;
+  string checkpoint_dir = 9;
+  int32 checkpoint_interval = 10;
+  BudgetInfo budget = 11;
+  repeated string asset_ids = 12;
+}
+
+message GetTaskRequest {
+  string node_id = 1;
+  HardwareInfo hardware_capabilities = 2;
+}
+
+message GetTaskResponse {
+  bool has_task = 1;
+  RenderTask task = 2;
+  string message = 3;
+}
+
+message TaskProgressRequest {
+  string node_id = 1;
+  string job_id = 2;
+  int32 task_id = 3;
+  int32 progress_percent = 4;
+  int64 elapsed_ms = 5;
+  string status_message = 6;
+}
+
+message TaskProgressResponse {
+  bool received = 1;
+}
+
+message TaskCompleteRequest {
+  string node_id = 1;
+  string job_id = 2;
+  int32 task_id = 3;
+  int32 frame_number = 4;
+  string output_file = 5;
+  int64 render_time_ms = 6;
+  int32 resolution_x = 7;
+  int32 resolution_y = 8;
+}
+
+message TaskCompleteResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message TaskFailedRequest {
+  string node_id = 1;
+  string job_id = 2;
+  int32 task_id = 3;
+  string error_message = 4;
+  int32 retry_count = 5;
+}
+
+message ReconnectNodeRequest {
+  string node_id = 1;
+  HardwareInfo hardware = 2;
+  string address = 3;
+  repeated TaskProgress incomplete_tasks = 4;
+}
+
+message TaskProgress {
+  string job_id = 1;
+  int32 task_id = 2;
+  int32 frame_number = 3;
+  int32 progress_percent = 4;
+  int64 elapsed_ms = 5;
+}
+
+message ReconnectNodeResponse {
+  bool success = 1;
+  string message = 2;
+  int64 heartbeat_interval_ms = 3;
+  repeated RenderTask reassigned_tasks = 4;
+  bool should_retry_incomplete = 5;
+}
+
+message CheckpointRequest {
+  string node_id = 1;
+  CheckpointInfo checkpoint = 2;
+}
+
+message CheckpointResponse {
+  bool received = 1;
+  string storage_path = 2;
+}
+
+message TaskFailedResponse {
+  bool should_retry = 1;
+  string message = 2;
+  CheckpointInfo last_checkpoint = 3;
+}
+
+message AssetInfo {
+  string asset_id = 1;
+  string file_path = 2;
+  string asset_type = 3;
+  int64 file_size = 4;
+  string checksum = 5;
+}
+
+message AssetRequest {
+  string node_id = 1;
+  string job_id = 2;
+  repeated string requested_asset_ids = 3;
+}
+
+message AssetResponse {
+  bool success = 1;
+  repeated AssetInfo available_assets = 2;
+  map<string, string> download_urls = 3;
+  string message = 4;
+}
+
+message CacheStatusRequest {
+  string node_id = 1;
+  int64 used_bytes = 2;
+  int64 total_bytes = 3;
+  int32 item_count = 4;
+  int32 texture_count = 5;
+  int32 mesh_count = 6;
+}
+
+message CacheStatusResponse {
+  bool received = 1;
+}
+
+message BudgetInfo {
+  int32 max_frames = 1;
+  int64 max_gpu_hours_ms = 2;
+  double cost_per_gpu_hour = 3;
+  bool paused = 4;
+  int64 budget_created_at = 5;
+}
+
+message BudgetStatus {
+  string job_id = 1;
+  int32 max_frames = 2;
+  int32 completed_frames = 3;
+  int64 max_gpu_hours_ms = 4;
+  int64 consumed_gpu_hours_ms = 5;
+  double cost_per_gpu_hour = 6;
+  double total_cost = 7;
+  bool over_budget = 8;
+  bool paused = 9;
+}

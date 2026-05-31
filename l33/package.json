@@ -1,0 +1,19 @@
+{
+  "name": "blender-distributed-render",
+  "version": "1.0.0",
+  "description": "Distributed Blender rendering system with gRPC",
+  "main": "scheduler/server.js",
+  "scripts": {
+    "start:scheduler": "node scheduler/server.js",
+    "start:web": "node web/server.js",
+    "build:proto": "powershell -ExecutionPolicy Bypass -File scripts/build-proto.ps1"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.9.0",
+    "@grpc/proto-loader": "^0.7.0",
+    "express": "^4.18.0",
+    "multer": "^1.4.5",
+    "socket.io": "^4.7.0",
+    "uuid": "^9.0.0"
+  }
+}
