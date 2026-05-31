@@ -1,0 +1,15 @@
+{
+  "AttackArmyThreshold": 5.0,
+  "DefenseArmyThreshold": 3.0,
+  "ResourceReserveRatio": 0.3,
+  "WorkerToSoldierRatio": 2.0,
+  "BuildPriorityWeight": 1.0,
+  "GatherPriorityWeight": 1.0,
+  "AggressionLevel": 0.5,
+  "ExpansionRate": 0.5,
+  "RetreatHealthThreshold": 0.3,
+  "VisionRadiusMultiplier": 1.0,
+  "GatherInterval": 2.0,
+  "ProductionInterval": 3.0,
+  "BuildInterval": 5.0
+}
