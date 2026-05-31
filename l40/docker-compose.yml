@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mr-inspect-db
+    environment:
+      POSTGRES_USER: mrinspect
+      POSTGRES_PASSWORD: mrinspect123
+      POSTGRES_DB: mr_inspection
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mrinspect"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: mr-inspect-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mr-inspect-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -t healthcheck -m ok || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mqtt-simulator:
+    image: eclipse-mosquitto:2
+    container_name: mr-inspect-simulator
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    entrypoint: >
+      sh -c '
+        echo "Starting MQTT sensor simulator..."
+        while true; do
+          mosquitto_pub -h mosquitto -t "sensor/EQ-001/temperature" -m "{\"value\":$((60 + RANDOM % 45)),\"unit\":\"°C\",\"timestamp\":\"$(date -Iseconds)\"}"
+          mosquitto_pub -h mosquitto -t "sensor/EQ-001/vibration" -m "{\"value\":$(echo "scale=1; $RANDOM/3276" | bc),\"unit\":\"mm/s\",\"timestamp\":\"$(date -Iseconds)\"}"
+          mosquitto_pub -h mosquitto -t "sensor/EQ-001/rpm" -m "{\"value\":$((1400 + RANDOM % 200)),\"unit\":\"RPM\",\"timestamp\":\"$(date -Iseconds)\"}"
+          mosquitto_pub -h mosquitto -t "sensor/EQ-002/temperature" -m "{\"value\":$((55 + RANDOM % 50)),\"unit\":\"°C\",\"timestamp\":\"$(date -Iseconds)\"}"
+          mosquitto_pub -h mosquitto -t "sensor/EQ-002/vibration" -m "{\"value\":$(echo "scale=1; $RANDOM/3276" | bc),\"unit\":\"mm/s\",\"timestamp\":\"$(date -Iseconds)\"}"
+          mosquitto_pub -h mosquitto -t "sensor/EQ-002/rpm" -m "{\"value\":$((900 + RANDOM % 300)),\"unit\":\"RPM\",\"timestamp\":\"$(date -Iseconds)\"}"
+          mosquitto_pub -h mosquitto -t "sensor/EQ-003/temperature" -m "{\"value\":$((70 + RANDOM % 35)),\"unit\":\"°C\",\"timestamp\":\"$(date -Iseconds)\"}"
+          mosquitto_pub -h mosquitto -t "sensor/EQ-003/vibration" -m "{\"value\":$(echo "scale=1; $RANDOM/3276" | bc),\"unit\":\"mm/s\",\"timestamp\":\"$(date -Iseconds)\"}"
+          mosquitto_pub -h mosquitto -t "sensor/EQ-003/rpm" -m "{\"value\":$((2800 + RANDOM % 400)),\"unit\":\"RPM\",\"timestamp\":\"$(date -Iseconds)\"}"
+          sleep 3
+        done
+      '
+
+volumes:
+  pgdata:
+  miniodata:
