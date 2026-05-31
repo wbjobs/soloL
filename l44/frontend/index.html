@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量子态可视化与纠缠检测平台</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>量子态可视化与实时纠缠检测平台</h1>
+            <div class="connection-status">
+                <span id="connection-indicator" class="status-indicator disconnected"></span>
+                <span id="connection-text">未连接</span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar left-sidebar">
+                <div class="panel">
+                    <h2>量子比特设置</h2>
+                    <div class="control-group">
+                        <label for="qubit-count">量子比特数:</label>
+                        <select id="qubit-count">
+                            <option value="1">1 量子比特</option>
+                            <option value="2">2 量子比特</option>
+                            <option value="3">3 量子比特</option>
+                            <option value="4">4 量子比特</option>
+                            <option value="5">5 量子比特</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="qubit-select">显示量子比特:</label>
+                        <select id="qubit-select">
+                            <option value="0">Qubit 0</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>量子门操作</h2>
+                    <div class="gate-buttons">
+                        <button class="gate-btn" data-gate="H">
+                            <span class="gate-symbol">H</span>
+                            <span class="gate-name">Hadamard</span>
+                        </button>
+                        <button class="gate-btn" data-gate="X">
+                            <span class="gate-symbol">X</span>
+                            <span class="gate-name">Pauli-X</span>
+                        </button>
+                        <button class="gate-btn" data-gate="Y">
+                            <span class="gate-symbol">Y</span>
+                            <span class="gate-name">Pauli-Y</span>
+                        </button>
+                        <button class="gate-btn" data-gate="Z">
+                            <span class="gate-symbol">Z</span>
+                            <span class="gate-name">Pauli-Z</span>
+                        </button>
+                    </div>
+                    <div class="cnot-controls">
+                        <h3>CNOT门</h3>
+                        <div class="control-row">
+                            <label>控制:</label>
+                            <select id="cnot-control">
+                                <option value="0">Qubit 0</option>
+                            </select>
+                            <label>目标:</label>
+                            <select id="cnot-target">
+                                <option value="1">Qubit 1</option>
+                            </select>
+                            <button id="apply-cnot">应用CNOT</button>
+                        </div>
+                    </div>
+                    <button id="reset-btn" class="action-btn secondary">重置状态</button>
+                </div>
+
+                <div class="panel">
+                    <h2>预设状态</h2>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" data-preset="bell-phi+">Bell Φ⁺</button>
+                        <button class="preset-btn" data-preset="bell-phi-">Bell Φ⁻</button>
+                        <button class="preset-btn" data-preset="bell-psi+">Bell Ψ⁺</button>
+                        <button class="preset-btn" data-preset="bell-psi-">Bell Ψ⁻</button>
+                        <button class="preset-btn" data-preset="ghz-3">GHZ 3</button>
+                        <button class="preset-btn" data-preset="ghz-4">GHZ 4</button>
+                        <button class="preset-btn" data-preset="ghz-5">GHZ 5</button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>四元数插值</h2>
+                    <div class="control-group">
+                        <label for="interp-steps">插值步数:</label>
+                        <input type="range" id="interp-steps" min="10" max="200" value="50">
+                        <span id="interp-steps-value">50</span>
+                    </div>
+                    <button id="capture-state1" class="action-btn">捕获状态1</button>
+                    <button id="capture-state2" class="action-btn">捕获状态2</button>
+                    <button id="start-interp" class="action-btn primary">开始插值</button>
+                    <div id="interp-status" class="status-text"></div>
+                </div>
+
+                <div class="panel">
+                    <h2>量子电路编辑器</h2>
+                    <div class="circuit-editor">
+                        <div class="circuit-toolbar">
+                            <span class="circuit-gate-draggable" data-gate="H" draggable="true">H</span>
+                            <span class="circuit-gate-draggable" data-gate="X" draggable="true">X</span>
+                            <span class="circuit-gate-draggable" data-gate="Y" draggable="true">Y</span>
+                            <span class="circuit-gate-draggable" data-gate="Z" draggable="true">Z</span>
+                            <span class="circuit-gate-draggable" data-gate="CNOT" draggable="true">CX</span>
+                        </div>
+                        <div id="circuit-grid" class="circuit-grid"></div>
+                        <div class="circuit-actions">
+                            <button id="run-circuit" class="action-btn primary">运行电路</button>
+                            <button id="clear-circuit" class="action-btn secondary">清空</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="content-area">
+                <div class="bloch-container">
+                    <div id="bloch-canvas-container" class="bloch-canvas">
+                        <canvas id="bloch-canvas"></canvas>
+                    </div>
+                    <div class="bloch-coordinates">
+                        <span>X: <span id="coord-x">0.000</span></span>
+                        <span>Y: <span id="coord-y">0.000</span></span>
+                        <span>Z: <span id="coord-z">1.000</span></span>
+                    </div>
+                    <div class="bloch-labels">
+                        <span class="label">|0⟩</span>
+                        <span class="label">|1⟩</span>
+                        <span class="label">X</span>
+                        <span class="label">Y</span>
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="state">态矢量</button>
+                    <button class="tab-btn" data-tab="density">密度矩阵</button>
+                    <button class="tab-btn" data-tab="entanglement">纠缠检测</button>
+                    <button class="tab-btn" data-tab="heatmap">熵热力图</button>
+                    <button class="tab-btn" data-tab="latex">LaTeX导出</button>
+                    <button class="tab-btn" data-tab="history">历史记录</button>
+                </div>
+
+                <div class="tab-content">
+                    <div id="state-tab" class="tab-panel active">
+                        <h3>态矢量</h3>
+                        <div id="state-vector" class="state-vector-display"></div>
+                    </div>
+
+                    <div id="density-tab" class="tab-panel">
+                        <h3>密度矩阵</h3>
+                        <div id="density-matrix" class="matrix-display"></div>
+                        <div id="reduced-density-matrices" class="reduced-matrices"></div>
+                    </div>
+
+                    <div id="entanglement-tab" class="tab-panel">
+                        <h3>纠缠检测结果</h3>
+                        <div class="entanglement-summary">
+                            <div id="entanglement-status" class="status-badge">非纠缠</div>
+                        </div>
+                        <div id="entanglement-details" class="entanglement-details"></div>
+                    </div>
+
+                    <div id="heatmap-tab" class="tab-panel">
+                        <h3>纠缠熵热力图</h3>
+                        <div class="control-group">
+                            <label>分辨率:</label>
+                            <select id="heatmap-resolution">
+                                <option value="10">低 (10)</option>
+                                <option value="20" selected>中 (20)</option>
+                                <option value="30">高 (30)</option>
+                            </select>
+                        </div>
+                        <button id="compute-heatmap" class="action-btn primary">计算热力图</button>
+                        <div id="heatmap-status" class="status-text"></div>
+                        <div id="heatmap-legend" class="heatmap-legend"></div>
+                    </div>
+
+                    <div id="latex-tab" class="tab-panel">
+                        <h3>LaTeX导出</h3>
+                        <div class="control-group">
+                            <label>精度:</label>
+                            <select id="latex-precision">
+                                <option value="2">2位</option>
+                                <option value="4" selected>4位</option>
+                                <option value="6">6位</option>
+                            </select>
+                        </div>
+                        <button id="export-latex" class="action-btn primary">生成LaTeX</button>
+                        <button id="copy-latex" class="action-btn">复制到剪贴板</button>
+                        <div id="latex-output" class="latex-output"></div>
+                    </div>
+
+                    <div id="history-tab" class="tab-panel">
+                        <h3>计算历史记录</h3>
+                        <div id="history-stats" class="stats-container"></div>
+                        <div id="history-list" class="history-list"></div>
+                        <button id="refresh-history" class="action-btn">刷新历史</button>
+                        <button id="clear-history" class="action-btn secondary">清空历史</button>
+                    </div>
+                </div>
+            </main>
+
+            <aside class="sidebar right-sidebar">
+                <div class="panel">
+                    <h2>当前状态信息</h2>
+                    <div class="state-info">
+                        <div class="info-item">
+                            <span class="label">量子比特数:</span>
+                            <span id="info-qubits">1</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">状态维度:</span>
+                            <span id="info-dimension">2</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">纯度:</span>
+                            <span id="info-purity">1.000</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">冯诺依曼熵:</span>
+                            <span id="info-entropy">0.000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Bloch球控制</h2>
+                    <div class="control-group">
+                        <label for="auto-rotate">自动旋转:</label>
+                        <input type="checkbox" id="auto-rotate" checked>
+                    </div>
+                    <div class="control-group">
+                        <label for="show-grid">显示网格:</label>
+                        <input type="checkbox" id="show-grid" checked>
+                    </div>
+                    <div class="control-group">
+                        <label for="show-labels">显示标签:</label>
+                        <input type="checkbox" id="show-labels" checked>
+                    </div>
+                    <div class="control-group">
+                        <label for="point-size">点大小:</label>
+                        <input type="range" id="point-size" min="1" max="10" value="5">
+                    </div>
+                    <button id="detect-entanglement" class="action-btn primary">检测纠缠</button>
+                </div>
+
+                <div class="panel">
+                    <h2>四元数信息</h2>
+                    <div class="quaternion-info">
+                        <div class="info-item">
+                            <span class="label">w:</span>
+                            <span id="quat-w">1.000</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">x:</span>
+                            <span id="quat-x">0.000</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">y:</span>
+                            <span id="quat-y">0.000</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">z:</span>
+                            <span id="quat-z">0.000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>保存状态</h2>
+                    <div class="control-group">
+                        <input type="text" id="save-name" placeholder="状态名称">
+                    </div>
+                    <button id="save-state-btn" class="action-btn">保存当前状态</button>
+                    <div id="saved-states-list" class="saved-states"></div>
+                </div>
+            </aside>
+        </div>
+
+        <div id="modal" class="modal hidden">
+            <div class="modal-content">
+                <span id="modal-close" class="close">&times;</span>
+                <h2 id="modal-title">详细信息</h2>
+                <div id="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="js/bloch_sphere.js?v=1.2.0"></script>
+    <script src="js/app.js?v=1.2.0"></script>
+</body>
+</html>

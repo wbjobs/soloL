@@ -1,0 +1,20 @@
+{
+  "name": "quantum-visualization",
+  "version": "1.0.0",
+  "description": "量子态可视化与实时纠缠检测平台",
+  "main": "server.js",
+  "scripts": {
+    "serve": "python -m http.server 8080",
+    "dev": "concurrently \"npm run serve\" \"cd backend && python app.py\""
+  },
+  "keywords": ["quantum", "visualization", "three.js"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.160.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
