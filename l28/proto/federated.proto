@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package federated;
+
+service FederatedService {
+    rpc RegisterDevice(RegisterRequest) returns (RegisterResponse);
+    rpc UploadModelUpdate(ModelUpdateRequest) returns (ModelUpdateResponse);
+    rpc DownloadGlobalModel(GlobalModelRequest) returns (GlobalModelResponse);
+    rpc ReportMetrics(MetricsRequest) returns (MetricsResponse);
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+message RegisterRequest {
+    string device_id = 1;
+    string device_type = 2;
+    int32 num_classes = 3;
+    int64 memory_bank_size = 4;
+}
+
+message RegisterResponse {
+    bool success = 1;
+    string device_token = 2;
+    int32 round_number = 3;
+    string message = 4;
+}
+
+message WeightEntry {
+    string layer_name = 1;
+    bytes weight_data = 2;
+    bytes bias_data = 3;
+    repeated int32 weight_shape = 4;
+    repeated int32 bias_shape = 5;
+}
+
+message ModelUpdateRequest {
+    string device_id = 1;
+    int32 round_number = 2;
+    repeated WeightEntry weights = 3;
+    int32 num_samples = 4;
+    float training_accuracy = 5;
+    float training_loss = 6;
+}
+
+message ModelUpdateResponse {
+    bool accepted = 1;
+    int32 current_round = 2;
+    int32 clients_reported = 3;
+    string message = 4;
+}
+
+message GlobalModelRequest {
+    string device_id = 1;
+    int32 current_round = 2;
+}
+
+message GlobalModelResponse {
+    bool available = 1;
+    int32 round_number = 2;
+    repeated WeightEntry weights = 3;
+    int32 num_classes = 4;
+    string message = 5;
+}
+
+message MetricsRequest {
+    string device_id = 1;
+    float fps = 2;
+    float accuracy = 3;
+    float avg_latency_ms = 4;
+    float memory_mb = 5;
+    float cpu_percent = 6;
+    int32 total_predictions = 7;
+    float uptime_seconds = 8;
+}
+
+message MetricsResponse {
+    bool received = 1;
+    string message = 2;
+}
+
+message HeartbeatRequest {
+    string device_id = 1;
+    int32 current_round = 2;
+    float cpu_percent = 3;
+    float memory_mb = 4;
+}
+
+message HeartbeatResponse {
+    bool alive = 1;
+    int32 server_round = 2;
+    bool model_update_available = 3;
+    int32 sync_interval_seconds = 4;
+}
