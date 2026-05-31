@@ -1,0 +1,25 @@
+app:
+  name: myapp
+  version: "1.0.0"
+  debug: false
+  max_connections: 100
+
+database:
+  host: db.example.com
+  port: 5432
+  name: appdb
+  user: appuser
+  ssl: true
+  pool:
+    min: 5
+    max: 20
+    idle_timeout: 300
+
+features:
+  - name: auth
+    enabled: true
+  - name: caching
+    enabled: true
+    ttl: 3600
+  - name: beta_feature
+    enabled: false

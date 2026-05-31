@@ -1,0 +1,20 @@
+current_cluster = "dev"
+
+[clusters.dev]
+endpoints = ["http://localhost:2379"]
+
+[clusters.staging]
+endpoints = ["https://etcd.staging.example.com:2379"]
+tls_ca = "/etc/etcd/tls/ca.pem"
+tls_cert = "/etc/etcd/tls/client.pem"
+tls_key = "/etc/etcd/tls/client-key.pem"
+
+[clusters.prod]
+endpoints = [
+    "https://etcd1.prod.example.com:2379",
+    "https://etcd2.prod.example.com:2379",
+    "https://etcd3.prod.example.com:2379"
+]
+tls_ca = "/etc/etcd/tls/prod-ca.pem"
+tls_cert = "/etc/etcd/tls/prod-client.pem"
+tls_key = "/etc/etcd/tls/prod-client-key.pem"
