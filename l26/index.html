@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>屏幕共享助手</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          <h1>屏幕共享助手</h1>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status-indicators">
+          <div id="wsStatus" class="status-badge status-disconnected">
+            <span class="status-dot"></span>
+            <span class="status-text">未连接</span>
+          </div>
+          <div id="shareStatus" class="status-badge status-stopped">
+            <span class="status-dot"></span>
+            <span class="status-text">未共享</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <aside class="sidebar">
+        <div class="control-panel">
+          <h2>连接设置</h2>
+          <div class="form-group">
+            <label for="serverUrl">服务器地址</label>
+            <input type="text" id="serverUrl" value="ws://localhost:8080" placeholder="ws://example.com:8080">
+          </div>
+          <div class="button-group">
+            <button id="connectBtn" class="btn btn-primary">连接</button>
+            <button id="disconnectBtn" class="btn btn-secondary" disabled>断开</button>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <h2>共享设置</h2>
+          
+          <div class="form-group">
+            <label>共享类型</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="shareType" value="fullscreen" checked>
+                <span>全屏共享</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="shareType" value="display">
+                <span>指定显示器</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="shareType" value="window">
+                <span>指定窗口</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="shareType" value="region">
+                <span>指定区域</span>
+              </label>
+            </div>
+          </div>
+
+          <div id="displaySelector" class="form-group hidden">
+            <label for="displaySelect">选择显示器</label>
+            <select id="displaySelect">
+              <option value="">加载中...</option>
+            </select>
+            <button id="refreshDisplays" class="btn btn-sm btn-secondary">刷新</button>
+          </div>
+
+          <div id="windowSelector" class="form-group hidden">
+            <label for="windowSelect">选择窗口</label>
+            <select id="windowSelect">
+              <option value="">加载中...</option>
+            </select>
+            <button id="refreshWindows" class="btn btn-sm btn-secondary">刷新</button>
+          </div>
+
+          <div id="regionSelector" class="form-group hidden">
+            <label>选择区域</label>
+            <div class="region-inputs">
+              <input type="number" id="regionX" placeholder="X" min="0">
+              <input type="number" id="regionY" placeholder="Y" min="0">
+              <input type="number" id="regionWidth" placeholder="宽度" min="100">
+              <input type="number" id="regionHeight" placeholder="高度" min="100">
+            </div>
+            <button id="selectRegionBtn" class="btn btn-sm btn-secondary">从屏幕选择</button>
+          </div>
+
+          <div class="form-group">
+            <label for="fpsSlider">帧率: <span id="fpsValue">30</span> fps</label>
+            <input type="range" id="fpsSlider" min="10" max="30" value="30" step="5">
+            <div class="slider-labels">
+              <span>10</span>
+              <span>20</span>
+              <span>30</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="qualitySlider">画质: <span id="qualityValue">80</span>%</label>
+            <input type="range" id="qualitySlider" min="10" max="100" value="80" step="5">
+          </div>
+
+          <div class="form-group">
+            <label for="scaleSlider">缩放: <span id="scaleValue">1.0</span>x</label>
+            <input type="range" id="scaleSlider" min="0.25" max="2" value="1" step="0.25">
+          </div>
+
+          <div class="button-group">
+            <button id="startBtn" class="btn btn-success">开始共享</button>
+            <button id="stopBtn" class="btn btn-danger" disabled>停止共享</button>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <h2>远程控制</h2>
+          <div class="control-info">
+            <div class="form-group">
+              <label>控制权限</label>
+              <div id="controlPermissionStatus" class="permission-status permission-allowed">
+                <span class="permission-icon">✓</span>
+                <span class="permission-text">远程控制已启用</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <div class="button-group">
+                <button id="enableControlBtn" class="btn btn-success">启用控制</button>
+                <button id="disableControlBtn" class="btn btn-danger">禁用控制</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="hint-text">
+                <span class="hint-icon">⌨️</span>
+                按 F12 可快速切换远程控制权限
+              </label>
+            </div>
+          </div>
+          <div class="control-mode-toggle form-group">
+            <label>
+              <input type="checkbox" id="controllerMode">
+              <span>主控模式（向被控端发送输入）</span>
+            </label>
+          </div>
+          <div id="controllerPanel" class="form-group hidden">
+            <div class="controller-hint">
+              <p>在画面上点击并操作即可远程控制</p>
+              <small>支持: 鼠标移动、点击、拖拽、滚轮、键盘输入</small>
+            </div>
+          </div>
+          <div class="audit-logs form-group">
+            <button id="viewAuditBtn" class="btn btn-secondary">查看审计日志</button>
+          </div>
+        </div>
+
+        <div class="control-panel">
+          <h2>实时状态</h2>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-label">当前帧率</span>
+              <span class="stat-value" id="currentFps">--</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">目标帧率</span>
+              <span class="stat-value" id="targetFps">30</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">网络延迟</span>
+              <span class="stat-value" id="latency">-- ms</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">画面大小</span>
+              <span class="stat-value" id="frameSize">--</span>
+            </div>
+          </div>
+          <div id="fpsAdjustAlert" class="alert hidden">
+            <span class="alert-icon">ℹ️</span>
+            <span id="fpsAdjustText">帧率已调整</span>
+          </div>
+          <div id="controlBlockedAlert" class="alert alert-warning hidden">
+            <span class="alert-icon">⚠️</span>
+            <span id="controlBlockedText">控制操作被拒绝</span>
+          </div>
+        </div>
+      </aside>
+
+      <section class="content-area">
+        <div class="video-container">
+          <div id="videoPlaceholder" class="video-placeholder">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+            <p>等待开始屏幕共享...</p>
+          </div>
+          <canvas id="videoCanvas" class="hidden"></canvas>
+          <div class="video-overlay">
+            <div class="overlay-info">
+              <span id="shareTypeLabel">未共享</span>
+              <span id="shareTime">00:00:00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-container">
+          <div class="chat-header">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              实时聊天
+            </h3>
+            <span id="onlineCount" class="online-count">在线: 0</span>
+          </div>
+          <div id="chatMessages" class="chat-messages">
+            <div class="system-message">
+              <span>欢迎使用屏幕共享助手！连接服务器后即可开始聊天。</span>
+            </div>
+          </div>
+          <div class="chat-input-container">
+            <input type="text" id="chatInput" placeholder="输入消息..." disabled>
+            <button id="sendChatBtn" class="btn btn-primary" disabled>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              发送
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="regionSelectorOverlay" class="region-overlay hidden">
+    <div class="region-overlay-header">
+      <span>拖动选择共享区域，按 Enter 确认，Esc 取消</span>
+      <button id="cancelRegionSelect" class="btn btn-sm btn-danger">取消</button>
+    </div>
+    <div id="selectionBox" class="selection-box"></div>
+    <div id="selectionInfo" class="selection-info">0 x 0</div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

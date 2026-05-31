@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>屏幕共享 - 观众端</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .viewer-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      padding: 20px;
+      gap: 20px;
+    }
+
+    .viewer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      border: 1px solid #475569;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-left h1 {
+      font-size: 20px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-indicators {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .status-badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .status-connected {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+    }
+
+    .status-connected .dot {
+      background: #10b981;
+    }
+
+    .status-disconnected {
+      background: rgba(239, 68, 68, 0.15);
+      color: #ef4444;
+    }
+
+    .status-disconnected .dot {
+      background: #ef4444;
+    }
+
+    .control-mode-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .control-mode-btn.active {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: white;
+    }
+
+    .control-mode-btn:not(.active) {
+      background: #334155;
+      color: #94a3b8;
+      border: 1px solid #475569;
+    }
+
+    .control-mode-btn:hover:not(.active) {
+      background: #475569;
+      color: #f1f5f9;
+    }
+
+    .main-content {
+      display: flex;
+      flex: 1;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    .video-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .video-container {
+      flex: 1;
+      position: relative;
+      background: #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #475569;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-container.controller-mode {
+      cursor: crosshair;
+      border-color: #3b82f6;
+    }
+
+    .video-container.controller-mode canvas {
+      pointer-events: all;
+    }
+
+    .control-indicator {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      padding: 6px 12px;
+      background: rgba(59, 130, 246, 0.9);
+      color: white;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .video-placeholder {
+      text-align: center;
+      color: #64748b;
+    }
+
+    .video-placeholder svg {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    .video-placeholder p {
+      font-size: 16px;
+    }
+
+    #videoCanvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .video-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .overlay-info {
+      padding: 8px 14px;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(8px);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .stat-card {
+      padding: 12px 16px;
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 8px;
+      border: 1px solid #475569;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 600;
+      color: #3b82f6;
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+
+    .chat-section {
+      width: 320px;
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      border: 1px solid #475569;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 16px;
+      border-bottom: 1px solid #475569;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .online-count {
+      font-size: 12px;
+      padding: 4px 10px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 3px;
+    }
+
+    .system-message {
+      align-self: center;
+      padding: 8px 16px;
+      background: #334155;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #94a3b8;
+      max-width: 80%;
+      text-align: center;
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 85%;
+    }
+
+    .message-self {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .message-other {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .message-self .message-header {
+      flex-direction: row-reverse;
+    }
+
+    .message-sender {
+      font-weight: 600;
+      color: #3b82f6;
+    }
+
+    .message-self .message-sender {
+      color: #10b981;
+    }
+
+    .message-time {
+      font-size: 10px;
+    }
+
+    .message-content {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+      word-wrap: break-word;
+    }
+
+    .message-self .message-content {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message-other .message-content {
+      background: #334155;
+      border: 1px solid #475569;
+      border-bottom-left-radius: 4px;
+    }
+
+    .chat-input-container {
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      border-top: 1px solid #475569;
+    }
+
+    .chat-input-container input {
+      flex: 1;
+      padding: 10px 14px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      color: #f1f5f9;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .chat-input-container input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    .chat-input-container input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .send-btn {
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .send-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.4);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .connect-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .connect-card {
+      padding: 48px;
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      border: 1px solid #475569;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .connect-card h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .connect-card p {
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+
+    .connect-card input {
+      width: 100%;
+      padding: 14px 16px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      color: #f1f5f9;
+      font-size: 15px;
+      margin-bottom: 16px;
+      outline: none;
+    }
+
+    .connect-card input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    }
+
+    .connect-card button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .connect-card button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4);
+    }
+
+    .connect-card button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .connecting {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .alert-toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 1000;
+      animation: slideDown 0.3s ease;
+    }
+
+    .alert-toast.warning {
+      background: rgba(245, 158, 11, 0.9);
+      color: white;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="connectScreen" class="connect-screen">
+    <div class="connect-card">
+      <h1>屏幕共享</h1>
+      <p>输入服务器地址以加入直播</p>
+      <input type="text" id="serverInput" placeholder="ws://localhost:8080" value="ws://localhost:8080">
+      <input type="text" id="nameInput" placeholder="输入您的昵称">
+      <button id="joinBtn">加入直播</button>
+      <div id="connecting" class="connecting">
+        <div class="spinner"></div>
+        <span>正在连接...</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="viewerApp" class="viewer-container hidden">
+    <header class="viewer-header">
+      <div class="header-left">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <h1>屏幕共享 - 观众端</h1>
+      </div>
+      <div class="status-indicators">
+        <button id="controlModeBtn" class="control-mode-btn">
+          🔒 控制模式
+        </button>
+        <div id="wsStatus" class="status-badge status-disconnected">
+          <span class="dot"></span>
+          <span id="wsStatusText">未连接</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="video-section">
+        <div id="videoContainer" class="video-container">
+          <div id="videoPlaceholder" class="video-placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+            <p id="placeholderText">等待主持人开始共享...</p>
+          </div>
+          <canvas id="videoCanvas" class="hidden"></canvas>
+          <div id="controlIndicator" class="control-indicator hidden">🎮 控制模式</div>
+          <div class="video-overlay">
+            <div id="shareInfo" class="overlay-info">等待共享</div>
+            <div id="viewerCount" class="overlay-info">在线: 0</div>
+          </div>
+        </div>
+
+        <div class="stats-bar">
+          <div class="stat-card">
+            <div class="stat-label">帧率</div>
+            <div class="stat-value" id="fpsStat">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">画质</div>
+            <div class="stat-value" id="qualityStat">--%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">延迟</div>
+            <div class="stat-value" id="latencyStat">-- ms</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">分辨率</div>
+            <div class="stat-value" id="resolutionStat">--</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="chat-section">
+        <div class="chat-header">
+          <h2>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            实时聊天
+          </h2>
+          <span id="onlineCount" class="online-count">在线: 0</span>
+        </div>
+        <div id="chatMessages" class="chat-messages">
+          <div class="system-message">
+            <span>欢迎加入！连接成功后即可开始聊天。</span>
+          </div>
+        </div>
+        <div class="chat-input-container">
+          <input type="text" id="chatInput" placeholder="输入消息..." disabled>
+          <button id="sendBtn" class="send-btn" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            发送
+          </button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    let ws = null;
+    let userName = '观众';
+    let isConnected = false;
+    let lastPingTime = 0;
+    let latency = 0;
+    const canvasCtx = document.getElementById('videoCanvas').getContext('2d');
+    
+    let isControllerMode = false;
+    let isMouseDown = false;
+    let lastMousePos = { x: 0, y: 0 };
+    let currentFrameWidth = 0;
+    let currentFrameHeight = 0;
+    let currentImg = null;
+    let frameRenderPending = false;
+    let pendingFrameUrl = null;
+
+    const elements = {
+      connectScreen: document.getElementById('connectScreen'),
+      viewerApp: document.getElementById('viewerApp'),
+      serverInput: document.getElementById('serverInput'),
+      nameInput: document.getElementById('nameInput'),
+      joinBtn: document.getElementById('joinBtn'),
+      connecting: document.getElementById('connecting'),
+      wsStatus: document.getElementById('wsStatus'),
+      wsStatusText: document.getElementById('wsStatusText'),
+      videoPlaceholder: document.getElementById('videoPlaceholder'),
+      placeholderText: document.getElementById('placeholderText'),
+      videoCanvas: document.getElementById('videoCanvas'),
+      videoContainer: document.getElementById('videoContainer'),
+      controlIndicator: document.getElementById('controlIndicator'),
+      controlModeBtn: document.getElementById('controlModeBtn'),
+      shareInfo: document.getElementById('shareInfo'),
+      viewerCount: document.getElementById('viewerCount'),
+      onlineCount: document.getElementById('onlineCount'),
+      fpsStat: document.getElementById('fpsStat'),
+      qualityStat: document.getElementById('qualityStat'),
+      latencyStat: document.getElementById('latencyStat'),
+      resolutionStat: document.getElementById('resolutionStat'),
+      chatInput: document.getElementById('chatInput'),
+      sendBtn: document.getElementById('sendBtn'),
+      chatMessages: document.getElementById('chatMessages')
+    };
+
+    elements.joinBtn.addEventListener('click', joinSession);
+    elements.serverInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinSession();
+    });
+    elements.nameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') joinSession();
+    });
+    elements.sendBtn.addEventListener('click', sendMessage);
+    elements.chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+    elements.controlModeBtn.addEventListener('click', toggleControlMode);
+
+    elements.videoCanvas.addEventListener('mousemove', handleControllerMouseMove);
+    elements.videoCanvas.addEventListener('mousedown', handleControllerMouseDown);
+    elements.videoCanvas.addEventListener('mouseup', handleControllerMouseUp);
+    elements.videoCanvas.addEventListener('wheel', handleControllerWheel, { passive: false });
+    elements.videoCanvas.addEventListener('dblclick', handleControllerDoubleClick);
+    elements.videoCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('keydown', handleControllerKeyDown);
+    document.addEventListener('keyup', handleControllerKeyUp);
+
+    function toggleControlMode() {
+      isControllerMode = !isControllerMode;
+      elements.controlModeBtn.classList.toggle('active', isControllerMode);
+      elements.controlModeBtn.textContent = isControllerMode ? '🎮 控制中' : '🔒 控制模式';
+      elements.videoContainer.classList.toggle('controller-mode', isControllerMode);
+      elements.controlIndicator.classList.toggle('hidden', !isControllerMode);
+      
+      if (isControllerMode) {
+        elements.videoCanvas.focus();
+        addSystemMessage('已进入控制模式，在画面上操作即可远程控制');
+      } else {
+        addSystemMessage('已退出控制模式');
+      }
+    }
+
+    function getScaledMousePosition(e) {
+      const rect = elements.videoCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const canvasWidth = elements.videoCanvas.width;
+      const canvasHeight = elements.videoCanvas.height;
+      
+      const scaleX = currentFrameWidth / canvasWidth;
+      const scaleY = currentFrameHeight / canvasHeight;
+      
+      return {
+        x: Math.round(x * scaleX),
+        y: Math.round(y * scaleY)
+      };
+    }
+
+    function sendControlEvent(action, data = {}) {
+      if (!isControllerMode || !ws || ws.readyState !== WebSocket.OPEN) return;
+      
+      ws.send(JSON.stringify({
+        type: 'control',
+        data: {
+          action,
+          ...data,
+          timestamp: Date.now()
+        }
+      }));
+    }
+
+    function handleControllerMouseMove(e) {
+      if (!isControllerMode) return;
+      
+      const pos = getScaledMousePosition(e);
+      if (Math.abs(pos.x - lastMousePos.x) < 2 && Math.abs(pos.y - lastMousePos.y) < 2) {
+        return;
+      }
+      
+      lastMousePos = pos;
+      
+      if (isMouseDown) {
+        sendControlEvent('mousedrag', { x: pos.x, y: pos.y });
+      } else {
+        sendControlEvent('mousemove', { x: pos.x, y: pos.y });
+      }
+    }
+
+    function handleControllerMouseDown(e) {
+      if (!isControllerMode) return;
+      e.preventDefault();
+      
+      const pos = getScaledMousePosition(e);
+      isMouseDown = true;
+      
+      const button = e.button === 2 ? 'right' : (e.button === 1 ? 'middle' : 'left');
+      sendControlEvent('mousedown', { x: pos.x, y: pos.y, button });
+    }
+
+    function handleControllerMouseUp(e) {
+      if (!isControllerMode) return;
+      e.preventDefault();
+      
+      const pos = getScaledMousePosition(e);
+      isMouseDown = false;
+      
+      const button = e.button === 2 ? 'right' : (e.button === 1 ? 'middle' : 'left');
+      sendControlEvent('mouseup', { x: pos.x, y: pos.y, button });
+    }
+
+    function handleControllerDoubleClick(e) {
+      if (!isControllerMode) return;
+      e.preventDefault();
+      
+      const pos = getScaledMousePosition(e);
+      const button = e.button === 2 ? 'right' : 'left';
+      sendControlEvent('click', { x: pos.x, y: pos.y, button, double: true });
+    }
+
+    function handleControllerWheel(e) {
+      if (!isControllerMode) return;
+      e.preventDefault();
+      
+      const direction = e.deltaY > 0 ? 'down' : 'up';
+      const amount = Math.abs(e.deltaY);
+      sendControlEvent('scroll', { amount, direction });
+    }
+
+    const KEY_MAP = {
+      'Control': 'control',
+      'Shift': 'shift',
+      'Alt': 'alt',
+      'Meta': 'command',
+      'Enter': 'enter',
+      'Tab': 'tab',
+      'Escape': 'escape',
+      'Backspace': 'backspace',
+      'Delete': 'delete',
+      'ArrowUp': 'up',
+      'ArrowDown': 'down',
+      'ArrowLeft': 'left',
+      'ArrowRight': 'right',
+      ' ': 'space'
+    };
+
+    function handleControllerKeyDown(e) {
+      if (!isControllerMode) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      const key = KEY_MAP[e.key] || e.key.toLowerCase();
+      sendControlEvent('keydown', { key });
+    }
+
+    function handleControllerKeyUp(e) {
+      if (!isControllerMode) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      const key = KEY_MAP[e.key] || e.key.toLowerCase();
+      sendControlEvent('keyup', { key });
+    }
+
+    function showAlert(message, type = 'warning') {
+      const alert = document.createElement('div');
+      alert.className = `alert-toast ${type}`;
+      alert.textContent = message;
+      document.body.appendChild(alert);
+      
+      setTimeout(() => {
+        alert.remove();
+      }, 3000);
+    }
+
+    function joinSession() {
+      const serverUrl = elements.serverInput.value.trim();
+      userName = elements.nameInput.value.trim() || '观众';
+
+      if (!serverUrl) {
+        alert('请输入服务器地址');
+        return;
+      }
+
+      elements.joinBtn.disabled = true;
+      elements.connecting.style.display = 'flex';
+
+      connectToServer(serverUrl);
+    }
+
+    function connectToServer(url) {
+      try {
+        ws = new WebSocket(url);
+
+        ws.onopen = () => {
+          console.log('连接成功');
+          isConnected = true;
+          updateConnectionStatus(true);
+          elements.connectScreen.classList.add('hidden');
+          elements.viewerApp.classList.remove('hidden');
+          elements.chatInput.disabled = false;
+          elements.sendBtn.disabled = false;
+
+          sendPing();
+          setInterval(sendPing, 3000);
+
+          addSystemMessage('已成功连接到服务器');
+        };
+
+        ws.onmessage = (event) => {
+          handleMessage(event.data);
+        };
+
+        ws.onclose = () => {
+          console.log('连接断开');
+          isConnected = false;
+          updateConnectionStatus(false);
+          elements.videoPlaceholder.classList.remove('hidden');
+          elements.videoCanvas.classList.add('hidden');
+          elements.placeholderText.textContent = '连接已断开';
+          elements.chatInput.disabled = true;
+          elements.sendBtn.disabled = true;
+          isControllerMode = false;
+          elements.controlModeBtn.classList.remove('active');
+          elements.videoContainer.classList.remove('controller-mode');
+          elements.controlIndicator.classList.add('hidden');
+          addSystemMessage('与服务器的连接已断开');
+        };
+
+        ws.onerror = (error) => {
+          console.error('连接错误:', error);
+          elements.joinBtn.disabled = false;
+          elements.connecting.style.display = 'none';
+          alert('连接服务器失败，请检查地址是否正确');
+        };
+      } catch (error) {
+        console.error('连接异常:', error);
+        elements.joinBtn.disabled = false;
+        elements.connecting.style.display = 'none';
+        alert('连接失败: ' + error.message);
+      }
+    }
+
+    function handleMessage(data) {
+      if (data instanceof Blob) {
+        handleFrameData(data);
+        return;
+      }
+
+      try {
+        const message = JSON.parse(data);
+        
+        switch (message.type) {
+          case 'connected':
+            console.log('已连接，客户端ID:', message.data.clientId);
+            break;
+          case 'viewer-count':
+            updateViewerCount(message.data.count);
+            break;
+          case 'system':
+            addSystemMessage(message.data.message);
+            break;
+          case 'chat':
+            addChatMessage(message.data);
+            break;
+          case 'pong':
+            latency = Date.now() - message.timestamp;
+            elements.latencyStat.textContent = latency + ' ms';
+            break;
+          case 'control-blocked':
+            showAlert('控制操作被拒绝: ' + (message.data.reason || '权限不足'), 'warning');
+            break;
+          default:
+            console.log('未知消息类型:', message.type);
+        }
+      } catch (error) {
+        console.error('解析消息失败:', error);
+      }
+    }
+
+    function handleFrameData(blob) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const buffer = reader.result;
+        const view = new DataView(buffer);
+        const metadataLength = view.getUint32(0, true);
+        const metadataStr = String.fromCharCode.apply(null, new Uint8Array(buffer, 4, metadataLength));
+        const metadata = JSON.parse(metadataStr);
+        const imageData = new Uint8Array(buffer, 4 + metadataLength);
+
+        currentFrameWidth = metadata.width || 0;
+        currentFrameHeight = metadata.height || 0;
+
+        const imgBlob = new Blob([imageData], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(imgBlob);
+
+        if (pendingFrameUrl) {
+          URL.revokeObjectURL(pendingFrameUrl);
+        }
+        pendingFrameUrl = url;
+
+        if (!currentImg) {
+          currentImg = new Image();
+          currentImg.onload = () => {
+            drawCurrentFrame();
+          };
+        }
+        currentImg.src = url;
+      };
+      reader.readAsArrayBuffer(blob);
+    }
+
+    function drawCurrentFrame() {
+      if (!currentImg || !currentImg.complete) {
+        return;
+      }
+
+      const container = elements.videoCanvas.parentElement;
+      const containerRect = container.getBoundingClientRect();
+
+      const scale = Math.min(
+        containerRect.width / currentImg.naturalWidth,
+        containerRect.height / currentImg.naturalHeight
+      );
+
+      const canvasWidth = Math.floor(currentImg.naturalWidth * scale);
+      const canvasHeight = Math.floor(currentImg.naturalHeight * scale);
+
+      if (elements.videoCanvas.width !== canvasWidth || elements.videoCanvas.height !== canvasHeight) {
+        elements.videoCanvas.width = canvasWidth;
+        elements.videoCanvas.height = canvasHeight;
+      }
+
+      canvasCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+      canvasCtx.drawImage(currentImg, 0, 0, canvasWidth, canvasHeight);
+
+      updateStats({
+        width: currentImg.naturalWidth,
+        height: currentImg.naturalHeight
+      });
+      elements.videoPlaceholder.classList.add('hidden');
+      elements.videoCanvas.classList.remove('hidden');
+    }
+
+    function updateStats(metadata) {
+      if (metadata.fps !== undefined) {
+        elements.fpsStat.textContent = metadata.actualFps || metadata.fps || '--';
+      }
+      if (metadata.quality !== undefined) {
+        elements.qualityStat.textContent = metadata.quality + '%';
+      }
+      elements.resolutionStat.textContent = metadata.width && metadata.height 
+        ? `${metadata.width}x${metadata.height}` 
+        : '--';
+    }
+
+    function updateViewerCount(count) {
+      elements.viewerCount.textContent = `在线: ${count}`;
+      elements.onlineCount.textContent = `在线: ${count}`;
+    }
+
+    function updateConnectionStatus(connected) {
+      if (connected) {
+        elements.wsStatus.className = 'status-badge status-connected';
+        elements.wsStatusText.textContent = '已连接';
+      } else {
+        elements.wsStatus.className = 'status-badge status-disconnected';
+        elements.wsStatusText.textContent = '未连接';
+      }
+    }
+
+    function sendPing() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        lastPingTime = Date.now();
+        ws.send(JSON.stringify({
+          type: 'ping',
+          timestamp: lastPingTime
+        }));
+      }
+    }
+
+    function sendMessage() {
+      const text = elements.chatInput.value.trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(JSON.stringify({
+        type: 'chat',
+        data: {
+          sender: userName,
+          message: text
+        }
+      }));
+
+      addChatMessage({
+        sender: userName,
+        message: text,
+        timestamp: Date.now(),
+        isSelf: true
+      });
+
+      elements.chatInput.value = '';
+    }
+
+    function addChatMessage(data) {
+      const messageEl = document.createElement('div');
+      messageEl.className = `message ${data.isSelf ? 'message-self' : 'message-other'}`;
+      
+      const time = new Date(data.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      
+      messageEl.innerHTML = `
+        <div class="message-header">
+          <span class="message-sender">${data.isSelf ? '我' : escapeHtml(data.sender)}</span>
+          <span class="message-time">${time}</span>
+        </div>
+        <div class="message-content">${escapeHtml(data.message)}</div>
+      `;
+      
+      elements.chatMessages.appendChild(messageEl);
+      elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+    }
+
+    function addSystemMessage(text) {
+      const messageEl = document.createElement('div');
+      messageEl.className = 'system-message';
+      messageEl.innerHTML = `<span>${escapeHtml(text)}</span>`;
+      elements.chatMessages.appendChild(messageEl);
+      elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
