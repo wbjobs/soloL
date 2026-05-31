@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #1e3a8a;
+  --color-primary-light: #2563eb;
+  --color-primary-dark: #172554;
+  --color-accent: #d4af37;
+  --color-accent-light: #f0d878;
+  --color-bg: #f0f4f8;
+  --color-bg-card: #ffffff;
+  --color-bg-sidebar: #0f172a;
+  --color-text: #1e293b;
+  --color-text-light: #64748b;
+  --color-text-inverse: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #0284c7;
+
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-serif {
+  font-family: 'Noto Serif SC', serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+@layer components {
+  .card-base {
+    @apply bg-white rounded-lg shadow-sm border border-gray-100;
+  }
+
+  .card-hover {
+    @apply card-base hover:shadow-md transition-shadow duration-200;
+  }
+
+  .section-title {
+    @apply font-serif text-lg font-semibold text-gray-800;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors duration-200;
+  }
+
+  .btn-accent {
+    @apply px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-500 transition-colors duration-200;
+  }
+
+  .badge-law {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800;
+  }
+
+  .badge-case {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800;
+  }
+
+  .badge-circumstance {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800;
+  }
+
+  .badge-person {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800;
+  }
+}
