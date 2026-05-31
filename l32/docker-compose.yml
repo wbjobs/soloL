@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: "0.4"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: gene_user
+      POSTGRES_PASSWORD: gene_password
+      POSTGRES_DB: gene_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gene_user -d gene_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-server:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      POSTGRES_URL: postgres://gene_user:gene_password@postgres:5432/gene_db?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      QUEUE_LENGTH_HIGH: 1000
+      QUEUE_LENGTH_LOW: 100
+      MAX_WORKERS: 10
+      MIN_WORKERS: 2
+      MINHASH_THRESHOLD: 0.3
+    command: ./api-server
+
+  worker:
+    build: .
+    depends_on:
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      POSTGRES_URL: postgres://gene_user:gene_password@postgres:5432/gene_db?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MESSAGE_TTL: 1800
+      MINHASH_THRESHOLD: 0.3
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+    command: ./worker
+
+  scaler:
+    build: .
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      POSTGRES_URL: postgres://gene_user:gene_password@postgres:5432/gene_db?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      QUEUE_LENGTH_HIGH: 1000
+      QUEUE_LENGTH_LOW: 100
+      MAX_WORKERS: 10
+      MIN_WORKERS: 2
+      SCALING_INTERVAL: 10
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: ./scaler
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  redis_data:
+  es_data:
