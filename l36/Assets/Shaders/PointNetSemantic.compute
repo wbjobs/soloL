@@ -1,0 +1,177 @@
+#pragma kernel PointNetSAModule
+#pragma kernel FeaturePropagation
+#pragma kernel ClassificationHead
+
+#define NUM_SEMANTIC_CLASSES 11
+#define MAX_NEIGHBORS 64
+#define GROUP_SIZE 256
+
+StructuredBuffer<float3> _Points;
+StructuredBuffer<float3> _Normals;
+StructuredBuffer<float> _PointFeatures;
+RWStructuredBuffer<float3> _SampledPoints;
+RWStructuredBuffer<float> _SampledFeatures;
+RWStructuredBuffer<int> _NeighborIndices;
+RWStructuredBuffer<int> _NeighborCounts;
+RWStructuredBuffer<int> _SampledIndices;
+RWStructuredBuffer<float3> _PropagatedPoints;
+RWStructuredBuffer<float> _PropagatedFeatures;
+RWStructuredBuffer<int> _ClassPredictions;
+RWStructuredBuffer<float> _ClassProbabilities;
+
+int _NumPoints;
+int _NumSampled;
+int _NumCentroids;
+int _FeatureDim;
+int _KNN;
+float _Radius;
+
+cbuffer PointNetParams
+{
+    float4x4 _MLP1Weights[64];
+    float4 _MLP1Biases[64];
+    float4x4 _MLP2Weights[256];
+    float4 _MLP2Biases[256];
+    float4x4 _FCWeights[NUM_SEMANTIC_CLASSES];
+    float4 _FCBiases[NUM_SEMANTIC_CLASSES];
+    float _DropoutRate;
+};
+
+groupshared float3 sPoints[GROUP_SIZE];
+groupshared float sDists[GROUP_SIZE];
+
+float3 GroupOperationMax(float3 a, float3 b) { return max(a, b); }
+
+float SqrDistance(float3 a, float3 b)
+{
+    float3 d = a - b;
+    return dot(d, d);
+}
+
+[numthreads(GROUP_SIZE, 1, 1)]
+void PointNetSAModule(uint3 id : SV_DispatchThreadID, uint gi : SV_GroupIndex, uint3 gid : SV_GroupID)
+{
+    if (gid.x >= (uint)_NumCentroids) return;
+
+    float3 centroid = _SampledPoints[gid.x];
+
+    if (gi < GROUP_SIZE)
+    {
+        sDists[gi] = 1e10f;
+    }
+    GroupMemoryWithBarrier();
+
+    for (uint i = gi; i < (uint)_NumPoints; i += GROUP_SIZE)
+    {
+        float3 p = _Points[i];
+        float dist = SqrDistance(p, centroid);
+        if (dist < _Radius * _Radius)
+        {
+            uint idx = i;
+            InterlockedCompareExchange(
+                _NeighborIndices[gid.x * MAX_NEIGHBORS + _NeighborCounts[gid.x]],
+                0, idx, idx);
+        }
+    }
+    GroupMemoryWithBarrier();
+
+    if (gi == 0)
+    {
+        float3 feat = float3(0, 0, 0);
+        int count = min(_NeighborCounts[gid.x], MAX_NEIGHBORS);
+        for (int j = 0; j < count; j++)
+        {
+            int nIdx = _NeighborIndices[gid.x * MAX_NEIGHBORS + j];
+            float3 localPos = _Points[nIdx] - centroid;
+            float3 localNorm = _Normals[nIdx];
+            feat = GroupOperationMax(feat, localPos);
+        }
+        _SampledFeatures[gid.x * 3 + 0] = feat.x;
+        _SampledFeatures[gid.x * 3 + 1] = feat.y;
+        _SampledFeatures[gid.x * 3 + 2] = feat.z;
+    }
+}
+
+[numthreads(GROUP_SIZE, 1, 1)]
+void FeaturePropagation(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    if (idx >= (uint)_NumPoints) return;
+
+    float3 p = _Points[idx];
+    float wSum = 0;
+    float3 featSum = float3(0, 0, 0);
+
+    for (int j = 0; j < _NumSampled; j++)
+    {
+        float3 sp = _SampledPoints[j];
+        float d = SqrDistance(p, sp);
+        float w = 1.0 / (d + 1e-6f);
+        wSum += w;
+        featSum += w * float3(
+            _SampledFeatures[j * 3 + 0],
+            _SampledFeatures[j * 3 + 1],
+            _SampledFeatures[j * 3 + 2]);
+    }
+
+    if (wSum > 0)
+    {
+        featSum /= wSum;
+    }
+
+    _PropagatedPoints[idx] = p;
+    _PropagatedFeatures[idx * 3 + 0] = featSum.x;
+    _PropagatedFeatures[idx * 3 + 1] = featSum.y;
+    _PropagatedFeatures[idx * 3 + 2] = featSum.z;
+}
+
+[numthreads(GROUP_SIZE, 1, 1)]
+void ClassificationHead(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    if (idx >= (uint)_NumPoints) return;
+
+    float3 feat = float3(
+        _PropagatedFeatures[idx * 3 + 0],
+        _PropagatedFeatures[idx * 3 + 1],
+        _PropagatedFeatures[idx * 3 + 2]);
+
+    float posH = _Points[idx].y;
+    float normY = _Normals[idx].y;
+
+    float scores[NUM_SEMANTIC_CLASSES];
+
+    scores[0] = 0.1f;
+    scores[1] = (abs(normY) < 0.3 && abs(posH - feat.y) < 0.5f) ? 2.0f : 0.2f;
+    scores[2] = (normY > 0.8f) ? 3.0f : 0.1f;
+    scores[3] = (normY < -0.8f) ? 3.0f : 0.1f;
+    scores[4] = (abs(normY) < 0.3 && abs(posH - 0.0f) < 0.3f) ? 2.5f : 0.1f;
+    scores[5] = (abs(normY) < 0.3 && posH > 0.8f && posH < 2.2f) ? 2.0f : 0.1f;
+    scores[6] = (abs(normY) < 0.3 && posH > 0.0f && posH < 3.0f) ? 1.0f : 0.1f;
+    scores[7] = (abs(normY) < 0.3 && abs(feat.x) < 0.3f && abs(feat.z) < 0.3f) ? 1.5f : 0.1f;
+    scores[8] = (abs(normY) < 0.3 && posH > 2.5f) ? 1.0f : 0.1f;
+    scores[9] = (abs(normY) < 0.3 && abs(feat.y) > 0.3f) ? 1.0f : 0.1f;
+    scores[10] = 0.1f;
+
+    float maxScore = -1e10f;
+    int maxClass = 0;
+    float scoreSum = 0;
+
+    for (int c = 0; c < NUM_SEMANTIC_CLASSES; c++)
+    {
+        if (scores[c] > maxScore)
+        {
+            maxScore = scores[c];
+            maxClass = c;
+        }
+        scores[c] = exp(scores[c]);
+        scoreSum += scores[c];
+    }
+
+    _ClassPredictions[idx] = maxClass;
+
+    for (int c2 = 0; c2 < NUM_SEMANTIC_CLASSES; c2++)
+    {
+        _ClassProbabilities[idx * NUM_SEMANTIC_CLASSES + c2] = scores[c2] / (scoreSum + 1e-10f);
+    }
+}
