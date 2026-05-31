@@ -1,0 +1,14 @@
+pyproject.toml
+configdrift/__init__.py
+configdrift/cli.py
+configdrift/config.py
+configdrift/drift.py
+configdrift/git_store.py
+configdrift/output.py
+configdrift/ssh_client.py
+configdrift.egg-info/PKG-INFO
+configdrift.egg-info/SOURCES.txt
+configdrift.egg-info/dependency_links.txt
+configdrift.egg-info/entry_points.txt
+configdrift.egg-info/requires.txt
+configdrift.egg-info/top_level.txt

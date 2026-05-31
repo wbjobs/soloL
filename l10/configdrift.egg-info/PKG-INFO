@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: configdrift
+Version: 0.1.0
+Summary: Detect and fix configuration drift across server clusters
+Requires-Python: >=3.10
+Requires-Dist: asyncssh>=2.14
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: rich>=13.0
+Requires-Dist: cryptography>=41.0
+Requires-Dist: click>=8.1

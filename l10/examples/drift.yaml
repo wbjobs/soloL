@@ -1,0 +1,58 @@
+ssh:
+  username: root
+  port: 22
+  key_path: ~/.ssh/id_rsa
+  # password: ENC:<encrypted_value>   # use `configdrift encrypt` to generate
+
+hosts:
+  - 192.168.1.10
+  - 192.168.1.11
+  - 192.168.1.12
+
+host_file: hosts.txt   # optional: one IP per line, # comments supported
+
+max_concurrency: 10
+
+encrypted: false
+
+history_db: drift_history.db
+
+plugin_dir: plugins
+
+plugins:
+  - name: ssh_security
+    path: ssh_security_check.py
+    stages: [audit, fix]
+    timeout: 30
+    enabled: true
+
+  - name: nginx_security
+    path: nginx_security_check.sh
+    stages: [audit]
+    timeout: 15
+    enabled: true
+
+git_repo: https://github.com/your-org/server-configs.git
+git_branch: main
+git_config_dir: configs
+
+expected:
+  - path: /etc/ssh/sshd_config
+    hash: "d41d8cd98f00b204e9800998ecf8427e"
+
+  - path: /etc/nginx/nginx.conf
+    content_file: expected/nginx.conf
+
+  - path: /etc/systemd/system/webapp.service
+    content: |
+      [Unit]
+      Description=Web Application
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/webapp
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target

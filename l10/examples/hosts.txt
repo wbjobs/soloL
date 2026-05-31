@@ -1,0 +1,5 @@
+# Server IP list - one per line
+# Lines starting with # are comments
+10.0.0.1
+10.0.0.2
+10.0.0.3

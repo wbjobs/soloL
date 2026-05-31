@@ -1,0 +1,15 @@
+[project]
+name = "configdrift"
+version = "0.1.0"
+description = "Detect and fix configuration drift across server clusters"
+requires-python = ">=3.10"
+dependencies = [
+    "asyncssh>=2.14",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+    "cryptography>=41.0",
+    "click>=8.1",
+]
+
+[project.scripts]
+configdrift = "configdrift.cli:main"

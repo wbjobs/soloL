@@ -1,0 +1,5 @@
+asyncssh>=2.14
+pyyaml>=6.0
+rich>=13.0
+cryptography>=41.0
+click>=8.1
