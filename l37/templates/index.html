@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>协议逆向工程与模糊测试工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .hex-view { font-family: monospace; font-size: 12px; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+        .status-running { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <header class="gradient-bg shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white">🔐 协议逆向工程与模糊测试工具</h1>
+                    <p class="text-blue-200 mt-1">Protocol Reverse Engineering & Fuzzing Tool</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="status-indicator" class="px-3 py-1 rounded-full text-sm bg-green-600">
+                        ● 就绪
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="bg-gray-800 border-b border-gray-700">
+        <div class="container mx-auto px-4">
+            <div class="flex space-x-1">
+                <button onclick="switchTab('capture')" class="tab-btn px-6 py-3 text-white font-medium hover:bg-gray-700 transition" data-tab="capture">
+                    📡 流量捕获
+                </button>
+                <button onclick="switchTab('cluster')" class="tab-btn px-6 py-3 text-gray-400 font-medium hover:bg-gray-700 transition" data-tab="cluster">
+                    📊 报文聚类
+                </button>
+                <button onclick="switchTab('infer')" class="tab-btn px-6 py-3 text-gray-400 font-medium hover:bg-gray-700 transition" data-tab="infer">
+                    🔍 协议推断
+                </button>
+                <button onclick="switchTab('describe')" class="tab-btn px-6 py-3 text-gray-400 font-medium hover:bg-gray-700 transition" data-tab="describe">
+                    📝 协议描述
+                </button>
+                <button onclick="switchTab('fuzz')" class="tab-btn px-6 py-3 text-gray-400 font-medium hover:bg-gray-700 transition" data-tab="fuzz">
+                    💥 模糊测试
+                </button>
+                <button onclick="switchTab('crashes')" class="tab-btn px-6 py-3 text-gray-400 font-medium hover:bg-gray-700 transition" data-tab="crashes">
+                    🚨 崩溃分析
+                </button>
+                <button onclick="switchTab('pipeline')" class="tab-btn px-6 py-3 text-gray-400 font-medium hover:bg-gray-700 transition" data-tab="pipeline">
+                    ⚡ 一键分析
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-6">
+        <div id="capture" class="tab-content active">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gray-800 rounded-lg p-6 card-hover transition">
+                    <h2 class="text-xl font-bold mb-4 text-blue-400">📡 流量捕获配置</h2>
+                    <form id="capture-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">网络接口</label>
+                            <select id="interface" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                                <option value="">自动选择</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">协议</label>
+                                <select id="protocol" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                                    <option value="tcp">TCP</option>
+                                    <option value="udp">UDP</option>
+                                    <option value="both">TCP + UDP</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">目标端口</label>
+                                <input type="number" id="dst-port" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2" placeholder="可选">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">超时时间(秒)</label>
+                                <input type="number" id="timeout" value="60" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">包数量(0=不限)</label>
+                                <input type="number" id="packet-count" value="0" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">输出文件名</label>
+                            <input type="text" id="output-file" value="capture.pcap" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                        </div>
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="startCapture()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition">
+                                ▶ 开始捕获
+                            </button>
+                            <button type="button" onclick="stopCapture()" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition">
+                                ⏹ 停止
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-6 card-hover transition">
+                    <h2 class="text-xl font-bold mb-4 text-green-400">📂 加载PCAP文件</h2>
+                    <div class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center">
+                        <input type="file" id="pcap-file" accept=".pcap,.cap" class="hidden" onchange="loadPcap()">
+                        <label for="pcap-file" class="cursor-pointer">
+                            <div class="text-5xl mb-4">📁</div>
+                            <p class="text-gray-300 mb-2">点击或拖拽PCAP文件到此处</p>
+                            <p class="text-sm text-gray-500">支持 .pcap, .cap 格式</p>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="capture-results" class="mt-6 hidden">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-lg font-bold mb-4 text-yellow-400">📊 捕获统计</h3>
+                    <div id="capture-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
+                    <h4 class="font-bold mb-3 text-gray-300">报文列表</h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-2 text-left">#</th>
+                                    <th class="px-4 py-2 text-left">时间</th>
+                                    <th class="px-4 py-2 text-left">源地址</th>
+                                    <th class="px-4 py-2 text-left">目的地址</th>
+                                    <th class="px-4 py-2 text-left">协议</th>
+                                    <th class="px-4 py-2 text-left">长度</th>
+                                    <th class="px-4 py-2 text-left">方向</th>
+                                    <th class="px-4 py-2 text-left">载荷(前64字节)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="packet-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="cluster" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gray-800 rounded-lg p-6 card-hover transition">
+                    <h2 class="text-xl font-bold mb-4 text-purple-400">📊 DBSCAN 聚类配置</h2>
+                    <form id="cluster-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Epsilon (ε)</label>
+                            <input type="range" id="eps" min="0.01" max="0.9" step="0.01" value="0.3" class="w-full" oninput="updateEpsValue()">
+                            <span id="eps-value" class="text-sm text-gray-400">0.30</span>
+                            <p class="text-xs text-gray-500 mt-1">邻域距离阈值</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Min Samples</label>
+                            <input type="number" id="min-samples" value="3" min="1" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            <p class="text-xs text-gray-500 mt-1">核心点所需最小样本数</p>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="use-sklearn" checked class="mr-2">
+                            <label for="use-sklearn" class="text-sm">使用sklearn DBSCAN实现</label>
+                        </div>
+                        <button type="button" onclick="runClustering()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded transition">
+                            🔬 开始聚类
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4 text-purple-400">📈 聚类结果图表</h2>
+                    <canvas id="cluster-chart" height="200"></canvas>
+                </div>
+            </div>
+
+            <div id="cluster-results" class="mt-6 hidden">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-lg font-bold mb-4 text-yellow-400">📋 聚类详情</h3>
+                    <div id="cluster-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
+                    <div id="cluster-details" class="space-y-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="infer" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gray-800 rounded-lg p-6 card-hover transition">
+                    <h2 class="text-xl font-bold mb-4 text-cyan-400">🔍 协议字段推断配置</h2>
+                    <form id="infer-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">熵值阈值</label>
+                            <input type="range" id="entropy-threshold" min="0.1" max="2.0" step="0.1" value="0.5" class="w-full" oninput="updateEntropyValue()">
+                            <span id="entropy-value" class="text-sm text-gray-400">0.5</span>
+                            <p class="text-xs text-gray-500 mt-1">字段边界检测阈值</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">最小字段长度</label>
+                                <input type="number" id="min-field-len" value="1" min="1" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">最大字段长度</label>
+                                <input type="number" id="max-field-len" value="64" min="1" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                        </div>
+                        <button type="button" onclick="runInference()" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-medium py-2 px-4 rounded transition">
+                            🧠 开始推断
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4 text-cyan-400">📉 熵值分布图</h2>
+                    <canvas id="entropy-chart" height="200"></canvas>
+                </div>
+            </div>
+
+            <div id="infer-results" class="mt-6 hidden">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-lg font-bold mb-4 text-yellow-400">📋 推断字段</h3>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-2 text-left">偏移</th>
+                                    <th class="px-4 py-2 text-left">长度</th>
+                                    <th class="px-4 py-2 text-left">名称</th>
+                                    <th class="px-4 py-2 text-left">类型</th>
+                                    <th class="px-4 py-2 text-left">熵值</th>
+                                    <th class="px-4 py-2 text-left">属性</th>
+                                    <th class="px-4 py-2 text-left">示例值</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fields-table"></tbody>
+                        </table>
+                    </div>
+                    <h4 class="font-bold mb-3 text-gray-300">字段可视化</h4>
+                    <pre id="field-visualization" class="bg-gray-900 p-4 rounded text-green-400 text-sm"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div id="describe" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gray-800 rounded-lg p-6 card-hover transition">
+                    <h2 class="text-xl font-bold mb-4 text-orange-400">📝 协议描述生成</h2>
+                    <form id="describe-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">协议名称</label>
+                            <input type="text" id="protocol-name" value="ReversedProtocol" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">输出文件名</label>
+                            <input type="text" id="xml-output" value="protocol.xml" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                        </div>
+                        <button type="button" onclick="generateDescription()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded transition">
+                            📄 生成XML描述
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4 text-orange-400">📊 协议摘要</h2>
+                    <div id="protocol-summary" class="space-y-4">
+                        <div class="text-center text-gray-500 py-8">
+                            生成协议描述后显示
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="describe-results" class="mt-6 hidden">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-yellow-400">📄 XML 协议描述</h3>
+                        <button onclick="downloadXml()" class="bg-green-600 hover:bg-green-700 text-white text-sm py-1 px-4 rounded">
+                            ⬇ 下载XML
+                        </button>
+                    </div>
+                    <pre id="xml-content" class="bg-gray-900 p-4 rounded text-sm overflow-x-auto max-h-96"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div id="fuzz" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-gray-800 rounded-lg p-6 card-hover transition">
+                    <h2 class="text-xl font-bold mb-4 text-red-400">💥 模糊测试配置</h2>
+                    <form id="fuzz-form" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">目标主机</label>
+                                <input type="text" id="target-host" value="127.0.0.1" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">目标端口</label>
+                                <input type="number" id="target-port" value="8080" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">传输协议</label>
+                            <select id="fuzz-protocol" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                                <option value="tcp">TCP</option>
+                                <option value="udp">UDP</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">最大用例数</label>
+                                <input type="number" id="max-cases" value="1000" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">每消息用例</label>
+                                <input type="number" id="cases-per-msg" value="100" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">随机种子</label>
+                                <input type="number" id="fuzz-seed" placeholder="可选" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">发送间隔(秒)</label>
+                                <input type="number" id="fuzz-delay" value="0.1" step="0.01" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">超时时间(秒)</label>
+                                <input type="number" id="fuzz-timeout" value="5.0" step="0.1" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                            </div>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button type="button" onclick="startFuzzing()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition">
+                                💥 开始模糊测试
+                            </button>
+                            <button type="button" onclick="stopFuzzing()" class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded transition">
+                                ⏹ 停止
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4 text-red-400">📊 变异策略</h2>
+                    <div id="strategies-list" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <div id="fuzz-results" class="mt-6">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-lg font-bold mb-4 text-yellow-400">📈 测试进度</h3>
+                    <div id="fuzz-stats" class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6"></div>
+                    <div class="w-full bg-gray-700 rounded-full h-4 mb-6">
+                        <div id="fuzz-progress" class="bg-green-500 h-4 rounded-full transition-all" style="width: 0%"></div>
+                    </div>
+                    <h4 class="font-bold mb-3 text-gray-300">实时日志</h4>
+                    <div id="fuzz-log" class="bg-gray-900 p-4 rounded h-64 overflow-y-auto font-mono text-sm"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="crashes" class="tab-content">
+            <div class="bg-gray-800 rounded-lg p-6 mb-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-red-400">🚨 崩溃样本分析</h2>
+                    <button onclick="generateCrashReport()" class="bg-red-600 hover:bg-red-700 text-white text-sm py-1 px-4 rounded">
+                        📄 生成报告
+                    </button>
+                </div>
+                <div id="crash-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4"></div>
+            </div>
+
+            <div id="crashes-list" class="space-y-4">
+                <div class="bg-gray-800 rounded-lg p-12 text-center text-gray-500">
+                    <div class="text-6xl mb-4">🔍</div>
+                    <p>暂无崩溃样本</p>
+                    <p class="text-sm mt-2">运行模糊测试后显示崩溃样本</p>
+                </div>
+            </div>
+
+            <div id="crash-detail-modal" class="fixed inset-0 bg-black bg-opacity-75 hidden items-center justify-center z-50">
+                <div class="bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 id="modal-title" class="text-xl font-bold text-red-400">崩溃详情</h3>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                    </div>
+                    <div id="modal-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="pipeline" class="tab-content">
+            <div class="bg-gray-800 rounded-lg p-6">
+                <h2 class="text-xl font-bold mb-6 text-gradient bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
+                    ⚡ 一键完整分析流程
+                </h2>
+                <form id="pipeline-form" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-gray-700/50 rounded-lg p-4">
+                            <h3 class="font-bold mb-3 text-blue-400">📡 流量捕获 (可选)</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">网络接口</label>
+                                    <select id="pipeline-interface" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                                        <option value="">自动选择</option>
+                                    </select>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">协议</label>
+                                        <select id="pipeline-protocol" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                                            <option value="tcp">TCP</option>
+                                            <option value="udp">UDP</option>
+                                            <option value="both">TCP + UDP</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">捕获时间(秒)</label>
+                                        <input type="number" id="pipeline-capture-time" value="60" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="use-existing-pcap" onchange="togglePcapInput()" class="mr-2">
+                                    <span class="text-sm">使用现有PCAP文件</span>
+                                </label>
+                                <input type="file" id="pipeline-pcap" accept=".pcap,.cap" class="hidden mt-2 w-full text-sm" onchange="selectPcapFile()">
+                                <div id="pcap-filename" class="text-sm text-green-400 mt-1 hidden"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-700/50 rounded-lg p-4">
+                            <h3 class="font-bold mb-3 text-red-400">💥 模糊测试 (可选)</h3>
+                            <div class="space-y-3">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">目标主机</label>
+                                        <input type="text" id="pipeline-target-host" value="127.0.0.1" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">目标端口</label>
+                                        <input type="number" id="pipeline-target-port" value="8080" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">模糊测试用例数</label>
+                                    <input type="number" id="pipeline-fuzz-cases" value="1000" class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-2">输出文件前缀</label>
+                        <input type="text" id="pipeline-prefix" value="analysis" class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2">
+                    </div>
+
+                    <button type="button" onclick="runFullPipeline()" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition transform hover:scale-[1.02]">
+                        🚀 开始完整分析流程
+                    </button>
+                </form>
+            </div>
+
+            <div id="pipeline-results" class="mt-6 hidden">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h3 class="text-lg font-bold mb-4 text-yellow-400">📊 分析进度</h3>
+                    <div id="pipeline-log" class="bg-gray-900 p-4 rounded h-64 overflow-y-auto font-mono text-sm"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 border-t border-gray-700 mt-8">
+        <div class="container mx-auto px-4 py-4 text-center text-gray-500 text-sm">
+            Protocol Reverse Engineering & Fuzzing Tool v1.0.0
+        </div>
+    </footer>
+
+    <script>
+        let currentTab = 'capture';
+        let fuzzStatusInterval = null;
+        let entropyChart = null;
+        let clusterChart = null;
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-white');
+                btn.classList.add('text-gray-400');
+            });
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.remove('text-gray-400');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('text-white');
+            currentTab = tabName;
+
+            if (tabName === 'fuzz') {
+                loadStrategies();
+            }
+        }
+
+        function setStatus(text, color = 'green') {
+            const indicator = document.getElementById('status-indicator');
+            indicator.className = `px-3 py-1 rounded-full text-sm bg-${color}-600`;
+            indicator.textContent = `● ${text}`;
+        }
+
+        async function loadInterfaces() {
+            try {
+                const response = await fetch('/api/interfaces');
+                const data = await response.json();
+                const selects = ['interface', 'pipeline-interface'];
+                selects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    if (select) {
+                        data.interfaces.forEach(iface => {
+                            const option = document.createElement('option');
+                            option.value = iface.name;
+                            option.textContent = `${iface.name} (${iface.address})`;
+                            select.appendChild(option);
+                        });
+                    }
+                });
+            } catch (e) {
+                console.error('Failed to load interfaces:', e);
+            }
+        }
+
+        async function startCapture() {
+            setStatus('捕获中...', 'yellow');
+            const formData = {
+                interface: document.getElementById('interface').value || null,
+                protocol: document.getElementById('protocol').value,
+                dst_port: parseInt(document.getElementById('dst-port').value) || null,
+                timeout: parseInt(document.getElementById('timeout').value),
+                packet_count: parseInt(document.getElementById('packet-count').value),
+                output_file: document.getElementById('output-file').value
+            };
+
+            try {
+                const response = await fetch('/api/capture', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setStatus('完成', 'green');
+                    loadCaptureInfo();
+                } else {
+                    setStatus('错误', 'red');
+                    alert('捕获失败: ' + data.error);
+                }
+            } catch (e) {
+                setStatus('错误', 'red');
+                alert('捕获失败: ' + e.message);
+            }
+        }
+
+        async function stopCapture() {
+            await fetch('/api/capture/stop', {method: 'POST'});
+            setStatus('已停止', 'orange');
+            loadCaptureInfo();
+        }
+
+        async function loadPcap() {
+            const fileInput = document.getElementById('pcap-file');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            setStatus('加载中...', 'yellow');
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/pcap/load', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setStatus('已加载', 'green');
+                    loadCaptureInfo();
+                } else {
+                    setStatus('错误', 'red');
+                    alert('加载失败: ' + data.error);
+                }
+            } catch (e) {
+                setStatus('错误', 'red');
+                alert('加载失败: ' + e.message);
+            }
+        }
+
+        async function loadCaptureInfo() {
+            try {
+                const response = await fetch('/api/pcap/info');
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('capture-results').classList.remove('hidden');
+
+                    const stats = data.stats;
+                    document.getElementById('capture-stats').innerHTML = `
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-blue-400">${stats.total_packets}</div>
+                            <div class="text-sm text-gray-400">总包数</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-green-400">${stats.tcp_packets}</div>
+                            <div class="text-sm text-gray-400">TCP包</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-purple-400">${stats.udp_packets}</div>
+                            <div class="text-sm text-gray-400">UDP包</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-yellow-400">${(stats.total_bytes / 1024).toFixed(2)} KB</div>
+                            <div class="text-sm text-gray-400">总字节</div>
+                        </div>
+                    `;
+
+                    const tbody = document.getElementById('packet-list');
+                    tbody.innerHTML = data.packets.map((pkt, i) => `
+                        <tr class="border-b border-gray-700 hover:bg-gray-700/50">
+                            <td class="px-4 py-2">${i + 1}</td>
+                            <td class="px-4 py-2">${new Date(pkt.timestamp * 1000).toLocaleTimeString()}</td>
+                            <td class="px-4 py-2">${pkt.src}</td>
+                            <td class="px-4 py-2">${pkt.dst}</td>
+                            <td class="px-4 py-2"><span class="px-2 py-1 rounded text-xs ${pkt.protocol === 'tcp' ? 'bg-blue-600' : 'bg-purple-600'}">${pkt.protocol.toUpperCase()}</span></td>
+                            <td class="px-4 py-2">${pkt.length}</td>
+                            <td class="px-4 py-2"><span class="${pkt.direction === 'inbound' ? 'text-green-400' : 'text-blue-400'}">${pkt.direction}</span></td>
+                            <td class="px-4 py-2 hex-view text-gray-400">${pkt.payload_hex}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load capture info:', e);
+            }
+        }
+
+        function updateEpsValue() {
+            document.getElementById('eps-value').textContent = parseFloat(document.getElementById('eps').value).toFixed(2);
+        }
+
+        async function runClustering() {
+            setStatus('聚类中...', 'yellow');
+            const formData = {
+                eps: parseFloat(document.getElementById('eps').value),
+                min_samples: parseInt(document.getElementById('min-samples').value),
+                use_sklearn: document.getElementById('use-sklearn').checked
+            };
+
+            try {
+                const response = await fetch('/api/cluster', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setStatus('完成', 'green');
+                    loadClusterInfo();
+                } else {
+                    setStatus('错误', 'red');
+                    alert('聚类失败: ' + data.error);
+                }
+            } catch (e) {
+                setStatus('错误', 'red');
+                alert('聚类失败: ' + e.message);
+            }
+        }
+
+        async function loadClusterInfo() {
+            try {
+                const response = await fetch('/api/cluster/info');
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('cluster-results').classList.remove('hidden');
+
+                    const summary = data.summary;
+                    const nonNoise = summary.filter(s => !s.is_noise);
+                    const noise = summary.find(s => s.is_noise);
+
+                    document.getElementById('cluster-summary').innerHTML = `
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-purple-400">${nonNoise.length}</div>
+                            <div class="text-sm text-gray-400">聚类数量</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-blue-400">${nonNoise.reduce((a, b) => a + b.packet_count, 0)}</div>
+                            <div class="text-sm text-gray-400">已分类报文</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-orange-400">${noise ? noise.packet_count : 0}</div>
+                            <div class="text-sm text-gray-400">噪声报文</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-green-400">${summary.length}</div>
+                            <div class="text-sm text-gray-400">总类别</div>
+                        </div>
+                    `;
+
+                    if (clusterChart) {
+                        clusterChart.destroy();
+                    }
+                    const ctx = document.getElementById('cluster-chart').getContext('2d');
+                    clusterChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: nonNoise.map(s => `Cluster ${s.cluster_id}`),
+                            datasets: [{
+                                label: '报文数量',
+                                data: nonNoise.map(s => s.packet_count),
+                                backgroundColor: 'rgba(147, 51, 234, 0.7)',
+                                borderColor: 'rgb(147, 51, 234)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {display: false}
+                            },
+                            scales: {
+                                y: {beginAtZero: true}
+                            }
+                        }
+                    });
+
+                    const details = document.getElementById('cluster-details');
+                    details.innerHTML = nonNoise.map(cluster => `
+                        <div class="bg-gray-700/50 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-purple-300">📦 Cluster ${cluster.cluster_id}</h4>
+                                <span class="text-sm text-gray-400">${cluster.packet_count} 个报文, 平均长度 ${cluster.average_length}</span>
+                            </div>
+                            <div class="bg-gray-900 rounded p-3">
+                                <div class="text-xs text-gray-500 mb-1">代表报文 (HEX):</div>
+                                <div class="hex-view text-green-400 break-all">${cluster.representative_hex}</div>
+                            </div>
+                            <div class="bg-gray-900 rounded p-3 mt-2">
+                                <div class="text-xs text-gray-500 mb-1">代表报文 (ASCII):</div>
+                                <div class="text-yellow-400 break-all">${cluster.representative_ascii}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load cluster info:', e);
+            }
+        }
+
+        function updateEntropyValue() {
+            document.getElementById('entropy-value').textContent = parseFloat(document.getElementById('entropy-threshold').value).toFixed(1);
+        }
+
+        async function runInference() {
+            setStatus('推断中...', 'yellow');
+            const formData = {
+                entropy_threshold: parseFloat(document.getElementById('entropy-threshold').value),
+                min_field_length: parseInt(document.getElementById('min-field-len').value),
+                max_field_length: parseInt(document.getElementById('max-field-len').value)
+            };
+
+            try {
+                const response = await fetch('/api/infer', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setStatus('完成', 'green');
+                    loadInferInfo();
+                } else {
+                    setStatus('错误', 'red');
+                    alert('推断失败: ' + data.error);
+                }
+            } catch (e) {
+                setStatus('错误', 'red');
+                alert('推断失败: ' + e.message);
+            }
+        }
+
+        async function loadInferInfo() {
+            try {
+                const response = await fetch('/api/infer/info');
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('infer-results').classList.remove('hidden');
+
+                    const profile = data.entropy_profile;
+                    if (entropyChart) {
+                        entropyChart.destroy();
+                    }
+                    const ctx = document.getElementById('entropy-chart').getContext('2d');
+                    entropyChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: profile.positions,
+                            datasets: [{
+                                label: '熵值',
+                                data: profile.entropies,
+                                borderColor: 'rgb(34, 211, 238)',
+                                backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                                fill: true,
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {display: false}
+                            },
+                            scales: {
+                                y: {beginAtZero: true, max: 8}
+                            }
+                        }
+                    });
+
+                    const tbody = document.getElementById('fields-table');
+                    tbody.innerHTML = data.fields.map(field => `
+                        <tr class="border-b border-gray-700 hover:bg-gray-700/50">
+                            <td class="px-4 py-2">0x${field.offset.toString(16).padStart(4, '0')}</td>
+                            <td class="px-4 py-2">${field.length}</td>
+                            <td class="px-4 py-2 font-mono text-cyan-400">${field.name}</td>
+                            <td class="px-4 py-2">
+                                <span class="px-2 py-1 rounded text-xs ${getTypeColor(field.type)}">${field.type}</span>
+                            </td>
+                            <td class="px-4 py-2">${field.entropy.toFixed(3)}</td>
+                            <td class="px-4 py-2">
+                                ${field.is_fixed ? '<span class="text-yellow-400 text-xs">固定</span> ' : ''}
+                                ${field.is_length ? '<span class="text-blue-400 text-xs">长度</span> ' : ''}
+                                ${field.is_checksum ? '<span class="text-red-400 text-xs">校验</span>' : ''}
+                            </td>
+                            <td class="px-4 py-2 hex-view text-gray-400 text-xs">${field.sample_values.slice(0, 3).join(', ')}</td>
+                        </tr>
+                    `).join('');
+
+                    fetch('/api/describe/info').then(res => res.json()).then(data => {
+                        if (data.success) {
+                            document.getElementById('field-visualization').textContent = data.visualization;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load infer info:', e);
+            }
+        }
+
+        function getTypeColor(type) {
+            const colors = {
+                'constant': 'bg-gray-600',
+                'length': 'bg-blue-600',
+                'checksum': 'bg-red-600',
+                'ascii_string': 'bg-green-600',
+                'binary_data': 'bg-purple-600',
+                'low_entropy': 'bg-yellow-600',
+                'high_entropy_data': 'bg-orange-600',
+                'encrypted_or_compressed': 'bg-pink-600'
+            };
+            return colors[type] || 'bg-gray-600';
+        }
+
+        async function generateDescription() {
+            setStatus('生成中...', 'yellow');
+            const formData = {
+                name: document.getElementById('protocol-name').value,
+                output: document.getElementById('xml-output').value
+            };
+
+            try {
+                const response = await fetch('/api/describe', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setStatus('完成', 'green');
+                    loadDescriptionInfo();
+                    document.getElementById('describe-results').classList.remove('hidden');
+                    document.getElementById('xml-content').textContent = data.result.xml;
+                } else {
+                    setStatus('错误', 'red');
+                    alert('生成失败: ' + data.error);
+                }
+            } catch (e) {
+                setStatus('错误', 'red');
+                alert('生成失败: ' + e.message);
+            }
+        }
+
+        async function loadDescriptionInfo() {
+            try {
+                const response = await fetch('/api/describe/info');
+                const data = await response.json();
+                if (data.success) {
+                    const summary = data.summary;
+                    document.getElementById('protocol-summary').innerHTML = `
+                        <div class="bg-gray-700 rounded p-4 mb-4">
+                            <div class="text-2xl font-bold text-orange-400">${summary.protocol_name}</div>
+                            <div class="text-sm text-gray-400 mt-1">生成时间: ${summary.generated_at}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="bg-gray-700 rounded p-3">
+                                <div class="text-xl font-bold text-blue-400">${summary.message_type_count}</div>
+                                <div class="text-sm text-gray-400">消息类型</div>
+                            </div>
+                            <div class="bg-gray-700 rounded p-3">
+                                <div class="text-xl font-bold text-green-400">${summary.total_fields}</div>
+                                <div class="text-sm text-gray-400">总字段数</div>
+                            </div>
+                        </div>
+                        ${summary.message_types.map(mt => `
+                            <div class="bg-gray-700/50 rounded p-3 mb-2">
+                                <div class="font-bold text-orange-300">${mt.name}</div>
+                                <div class="text-sm text-gray-400">${mt.field_count} 个字段</div>
+                            </div>
+                        `).join('')}
+                    `;
+                }
+            } catch (e) {
+                console.error('Failed to load description info:', e);
+            }
+        }
+
+        async function downloadXml() {
+            const response = await fetch('/api/describe/xml');
+            const xml = await response.text();
+            const blob = new Blob([xml], {type: 'application/xml'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'protocol.xml';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function loadStrategies() {
+            try {
+                const response = await fetch('/api/strategies');
+                const data = await response.json();
+                document.getElementById('strategies-list').innerHTML = data.strategies.map(s => `
+                    <div class="flex items-center p-3 bg-gray-700/50 rounded">
+                        <div class="w-3 h-3 rounded-full mr-3 ${getStrategyColor(s.value)}"></div>
+                        <div class="flex-1">
+                            <div class="font-medium">${s.name}</div>
+                            <div class="text-xs text-gray-400">${s.description}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load strategies:', e);
+            }
+        }
+
+        function getStrategyColor(strategy) {
+            const colors = {
+                'bit_flip': 'bg-yellow-400',
+                'boundary_value': 'bg-red-400',
+                'random_bytes': 'bg-blue-400',
+                'arithmetic': 'bg-green-400',
+                'interesting_values': 'bg-purple-400',
+                'block_operation': 'bg-orange-400'
+            };
+            return colors[strategy] || 'bg-gray-400';
+        }
+
+        async function startFuzzing() {
+            setStatus('模糊测试中...', 'red');
+            const formData = {
+                host: document.getElementById('target-host').value,
+                port: parseInt(document.getElementById('target-port').value),
+                protocol: document.getElementById('fuzz-protocol').value,
+                max_cases: parseInt(document.getElementById('max-cases').value),
+                cases_per_message: parseInt(document.getElementById('cases-per-msg').value),
+                delay: parseFloat(document.getElementById('fuzz-delay').value),
+                timeout: parseFloat(document.getElementById('fuzz-timeout').value),
+                seed: parseInt(document.getElementById('fuzz-seed').value) || null
+            };
+
+            try {
+                const response = await fetch('/api/fuzz/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('fuzz-log').innerHTML = '';
+                    startFuzzStatusPolling();
+                } else {
+                    setStatus('错误', 'red');
+                    alert('启动失败: ' + data.error);
+                }
+            } catch (e) {
+                setStatus('错误', 'red');
+                alert('启动失败: ' + e.message);
+            }
+        }
+
+        async function stopFuzzing() {
+            await fetch('/api/fuzz/stop', {method: 'POST'});
+            if (fuzzStatusInterval) {
+                clearInterval(fuzzStatusInterval);
+                fuzzStatusInterval = null;
+            }
+            setStatus('已停止', 'orange');
+            loadCrashInfo();
+        }
+
+        function startFuzzStatusPolling() {
+            if (fuzzStatusInterval) {
+                clearInterval(fuzzStatusInterval);
+            }
+            fuzzStatusInterval = setInterval(updateFuzzStatus, 1000);
+        }
+
+        async function updateFuzzStatus() {
+            try {
+                const response = await fetch('/api/fuzz/status');
+                const data = await response.json();
+
+                if (data.fuzzer) {
+                    const fuzzer = data.fuzzer;
+                    document.getElementById('fuzz-stats').innerHTML = `
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-blue-400">${fuzzer.total_cases}</div>
+                            <div class="text-sm text-gray-400">已执行</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-red-400 status-running">${fuzzer.crashes || 0}</div>
+                            <div class="text-sm text-gray-400">崩溃</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-yellow-400">${fuzzer.timeouts || 0}</div>
+                            <div class="text-sm text-gray-400">超时</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-orange-400">${fuzzer.errors || 0}</div>
+                            <div class="text-sm text-gray-400">错误</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-green-400">${(fuzzer.cases_per_second || 0).toFixed(1)}</div>
+                            <div class="text-sm text-gray-400">每秒用例</div>
+                        </div>
+                        <div class="bg-gray-700 rounded p-3">
+                            <div class="text-2xl font-bold text-purple-400">${fuzzer.queue_size || 0}</div>
+                            <div class="text-sm text-gray-400">剩余</div>
+                        </div>
+                    `;
+
+                    const progress = fuzzer.total_cases / (fuzzer.total_cases + fuzzer.queue_size) * 100;
+                    document.getElementById('fuzz-progress').style.width = `${progress}%`;
+
+                    const logDiv = document.getElementById('fuzz-log');
+                    const lastLine = `[${new Date().toLocaleTimeString()}] ${fuzzer.phase.toUpperCase()} - ${fuzzer.total_cases} cases, ${fuzzer.crashes || 0} crashes`;
+                    if (!logDiv.textContent.includes(lastLine)) {
+                        logDiv.innerHTML += `<div class="${fuzzer.crashes > 0 ? 'text-red-400' : 'text-green-400'}">${lastLine}</div>`;
+                        logDiv.scrollTop = logDiv.scrollHeight;
+                    }
+
+                    if (fuzzer.phase === 'completed' || fuzzer.phase === 'error') {
+                        clearInterval(fuzzStatusInterval);
+                        fuzzStatusInterval = null;
+                        setStatus(fuzzer.phase === 'completed' ? '完成' : '错误',
+                                  fuzzer.phase === 'completed' ? 'green' : 'red');
+                        loadCrashInfo();
+                    }
+                }
+
+                if (data.crashes && data.crashes.total_crashes > 0) {
+                    loadCrashInfo();
+                }
+            } catch (e) {
+                console.error('Failed to update fuzz status:', e);
+            }
+        }
+
+        async function loadCrashInfo() {
+            try {
+                const response = await fetch('/api/crashes');
+                const data = await response.json();
+                if (data.success && data.statistics && data.statistics.total_crashes > 0) {
+                    const stats = data.statistics;
+                    document.getElementById('crash-stats').innerHTML = `
+                        <div class="bg-red-900/50 rounded p-3 border border-red-700">
+                            <div class="text-2xl font-bold text-red-400">${stats.total_crashes}</div>
+                            <div class="text-sm text-gray-400">总崩溃数</div>
+                        </div>
+                        <div class="bg-orange-900/50 rounded p-3 border border-orange-700">
+                            <div class="text-2xl font-bold text-orange-400">${stats.unique_crash_inputs}</div>
+                            <div class="text-sm text-gray-400">唯一崩溃输入</div>
+                        </div>
+                        <div class="bg-yellow-900/50 rounded p-3 border border-yellow-700">
+                            <div class="text-2xl font-bold text-yellow-400">${Object.keys(stats.by_category).length}</div>
+                            <div class="text-sm text-gray-400">崩溃类型</div>
+                        </div>
+                        <div class="bg-purple-900/50 rounded p-3 border border-purple-700">
+                            <div class="text-2xl font-bold text-purple-400">${Object.keys(stats.by_strategy).length}</div>
+                            <div class="text-sm text-gray-400">变异策略</div>
+                        </div>
+                    `;
+
+                    const crashList = document.getElementById('crashes-list');
+                    crashList.innerHTML = data.crashes.map(crash => `
+                        <div class="bg-gray-800 rounded-lg p-4 cursor-pointer hover:bg-gray-700/50 transition card-hover" onclick="showCrashDetail('${crash.crash_id}')">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="px-2 py-1 rounded text-xs ${getCategoryColor(crash.categorization)}">${crash.categorization}</span>
+                                        <span class="text-xs text-gray-500">${crash.crash_id}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-300 mt-2">${crash.crash_details}</div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        ${crash.message_type} · ${crash.mutation_strategy} · ${crash.response_time.toFixed(3)}s
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-gray-500">${new Date(crash.crash_time).toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div class="mt-3 bg-gray-900 rounded p-2">
+                                <div class="text-xs text-gray-500 mb-1">崩溃报文:</div>
+                                <div class="hex-view text-red-400 text-sm break-all">${crash.mutated_hex}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load crash info:', e);
+            }
+        }
+
+        function getCategoryColor(category) {
+            const colors = {
+                'network_crash': 'bg-red-600',
+                'timeout_crash': 'bg-yellow-600',
+                'memory_corruption': 'bg-purple-600',
+                'buffer_overflow': 'bg-pink-600',
+                'application_error': 'bg-orange-600',
+                'null_pointer': 'bg-blue-600',
+                'division_by_zero': 'bg-green-600'
+            };
+            return colors[category] || 'bg-gray-600';
+        }
+
+        async function showCrashDetail(crashId) {
+            try {
+                const response = await fetch(`/api/crashes/${crashId}`);
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('modal-title').textContent = `崩溃详情 - ${crashId}`;
+                    document.getElementById('modal-content').innerHTML = `
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-gray-700 rounded p-3">
+                                    <div class="text-sm text-gray-400">类型</div>
+                                    <div class="font-bold ${getCategoryColor(data.crash.categorization)} px-2 py-1 rounded inline-block mt-1">${data.crash.categorization}</div>
+                                </div>
+                                <div class="bg-gray-700 rounded p-3">
+                                    <div class="text-sm text-gray-400">时间</div>
+                                    <div class="font-bold">${new Date(data.crash.crash_time).toLocaleString()}</div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-700 rounded p-3">
+                                <div class="text-sm text-gray-400 mb-1">崩溃详情</div>
+                                <div class="text-red-400">${data.crash.crash_details}</div>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium mb-2">报文差异对比</div>
+                                <pre class="bg-gray-900 p-4 rounded text-sm overflow-x-auto">${data.diff}</pre>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium mb-2">崩溃报文序列</div>
+                                ${data.sequence.map((pkt, i) => `
+                                    <div class="mb-2 ${pkt.type === 'crash' ? 'bg-red-900/30 border border-red-700' : 'bg-gray-700/50'} rounded p-3">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-sm font-medium ${pkt.type === 'crash' ? 'text-red-400' : 'text-gray-400'}">
+                                                ${pkt.type === 'crash' ? '💥 崩溃报文' : `📦 前置报文 ${i + 1}`}
+                                            </span>
+                                            ${pkt.crash_details ? `<span class="text-xs text-red-400">${pkt.crash_details}</span>` : ''}
+                                        </div>
+                                        <div class="hex-view text-xs break-all">${pkt.hex}</div>
+                                        <div class="text-xs text-gray-500 mt-1 break-all">${pkt.ascii}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium mb-2">可读格式</div>
+                                <pre class="bg-gray-900 p-4 rounded text-sm overflow-x-auto">${data.readable}</pre>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('crash-detail-modal').classList.remove('hidden');
+                    document.getElementById('crash-detail-modal').classList.add('flex');
+                }
+            } catch (e) {
+                console.error('Failed to load crash detail:', e);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('crash-detail-modal').classList.add('hidden');
+            document.getElementById('crash-detail-modal').classList.remove('flex');
+        }
+
+        function togglePcapInput() {
+            const checkbox = document.getElementById('use-existing-pcap');
+            const fileInput = document.getElementById('pipeline-pcap');
+            if (checkbox.checked) {
+                fileInput.classList.remove('hidden');
+            } else {
+                fileInput.classList.add('hidden');
+                document.getElementById('pcap-filename').classList.add('hidden');
+            }
+        }
+
+        function selectPcapFile() {
+            const fileInput = document.getElementById('pipeline-pcap');
+            const filenameDiv = document.getElementById('pcap-filename');
+            if (fileInput.files.length > 0) {
+                filenameDiv.textContent = `已选择: ${fileInput.files[0].name}`;
+                filenameDiv.classList.remove('hidden');
+            }
+        }
+
+        async function runFullPipeline() {
+            const usePcap = document.getElementById('use-existing-pcap').checked;
+            const formData = {
+                interface: document.getElementById('pipeline-interface').value || null,
+                protocol: document.getElementById('pipeline-protocol').value,
+                capture_time: parseInt(document.getElementById('pipeline-capture-time').value),
+                target_host: document.getElementById('pipeline-target-host').value,
+                target_port: parseInt(document.getElementById('pipeline-target-port').value),
+                fuzz_cases: parseInt(document.getElementById('pipeline-fuzz-cases').value),
+                prefix: document.getElementById('pipeline-prefix').value
+            };
+
+            setStatus('分析中...', 'yellow');
+            document.getElementById('pipeline-results').classList.remove('hidden');
+            document.getElementById('pipeline-log').innerHTML = '';
+
+            try {
+                const response = await fetch('/api/pipeline/full', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(formData)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    setStatus('完成', 'green');
+                    document.getElementById('pipeline-log').innerHTML += '<div class="text-green-400">分析流程完成！</div>';
+                } else {
+                    setStatus('错误', 'red');
+                    alert('分析失败: ' + data.error);
+                }
+            } catch (e) {
+                setStatus('错误', 'red');
+                alert('分析失败: ' + e.message);
+            }
+        }
+
+        async function generateCrashReport() {
+            try {
+                const response = await fetch('/api/crashes/report', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({output: 'crash_report.md'})
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('报告已生成: ' + data.result.report_path);
+                } else {
+                    alert('生成失败: ' + data.error);
+                }
+            } catch (e) {
+                alert('生成失败: ' + e.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInterfaces();
+        });
+    </script>
+</body>
+</html>

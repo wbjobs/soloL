@@ -1,0 +1,106 @@
+<?xml version="1.0" ?>
+<protocol name="Protocol_test_analysis" version="1.0" generated_at="2026-05-30T07:37:56.209771">
+  <metadata>
+    <item name="total_message_types">3</item>
+    <item name="total_clusters">4</item>
+    <item name="noise_packets">20</item>
+    <capture>
+      <item name="total_packets">100</item>
+      <item name="tcp_packets">100</item>
+      <item name="udp_packets">0</item>
+      <item name="total_bytes">7045</item>
+      <item name="unique_pairs">1</item>
+      <item name="by_direction">{'inbound': 0, 'outbound': 100}</item>
+      <item name="duration">7.939455986022949</item>
+    </capture>
+    <clustering>
+      <item name="eps">0.3</item>
+      <item name="min_samples">3</item>
+      <item name="metric">hamming</item>
+    </clustering>
+    <inference>
+      <item name="entropy_threshold">0.5</item>
+      <item name="min_field_length">1</item>
+      <item name="max_field_length">64</item>
+    </inference>
+    <item name="generated_at">2026-05-30T07:37:56.209771</item>
+  </metadata>
+  <message_types>
+    <message_type name="MessageType_00" cluster_id="0" description="Cluster 0 with 27 packets">
+      <representative hex="00050004627965" length="7">....bye</representative>
+      <fields>
+        <field name="fixed_0000" offset="0" length="7" type="constant" entropy="0.0000" is_fixed="true" is_length="false" is_checksum="false">
+          <values>
+            <value index="0" hex="00050004627965">....bye</value>
+          </values>
+          <fuzzing_constraints mutable="false" fixed_value="00050004627965"/>
+        </field>
+      </fields>
+    </message_type>
+    <message_type name="MessageType_01" cluster_id="1" description="Cluster 1 with 27 packets">
+      <representative hex="000d0001757365723a746573743734" length="15">....user:test74</representative>
+      <fields>
+        <field name="fixed_0000" offset="0" length="1" type="constant" entropy="0.0000" is_fixed="true" is_length="false" is_checksum="false">
+          <values>
+            <value index="0" hex="00">.</value>
+          </values>
+          <fuzzing_constraints mutable="false" fixed_value="00"/>
+        </field>
+        <field name="binary_data_01" offset="1" length="1" type="binary_data" entropy="0.5033" is_fixed="false" is_length="false" is_checksum="false">
+          <values>
+            <value index="0" hex="0d">.</value>
+            <value index="1" hex="0c">.</value>
+          </values>
+          <fuzzing_constraints mutable="true"/>
+        </field>
+        <field name="fixed_0002" offset="2" length="11" type="constant" entropy="0.0000" is_fixed="true" is_length="false" is_checksum="false">
+          <values>
+            <value index="0" hex="0001757365723a74657374">..user:test</value>
+          </values>
+          <fuzzing_constraints mutable="false" fixed_value="0001757365723a74657374"/>
+        </field>
+        <field name="ascii_string_01" offset="13" length="2" type="ascii_string" entropy="3.0151" is_fixed="false" is_length="false" is_checksum="false">
+          <values>
+            <value index="0" hex="3835">85</value>
+            <value index="1" hex="3436">46</value>
+            <value index="2" hex="3632">62</value>
+            <value index="3" hex="3231">21</value>
+            <value index="4" hex="3833">83</value>
+            <value index="5" hex="3732">72</value>
+            <value index="6" hex="3133">13</value>
+            <value index="7" hex="3932">92</value>
+            <value index="8" hex="3433">43</value>
+            <value index="9" hex="3534">54</value>
+          </values>
+          <fuzzing_constraints mutable="true"/>
+        </field>
+      </fields>
+    </message_type>
+    <message_type name="MessageType_02" cluster_id="2" description="Cluster 2 with 26 packets">
+      <representative hex="0007000370696e6736" length="9">....ping6</representative>
+      <fields>
+        <field name="fixed_0000" offset="0" length="8" type="constant" entropy="0.0000" is_fixed="true" is_length="false" is_checksum="false">
+          <values>
+            <value index="0" hex="0007000370696e67">....ping</value>
+          </values>
+          <fuzzing_constraints mutable="false" fixed_value="0007000370696e67"/>
+        </field>
+        <field name="ascii_string_01" offset="8" length="1" type="ascii_string" entropy="3.0749" is_fixed="false" is_length="false" is_checksum="false">
+          <values>
+            <value index="0" hex="35">5</value>
+            <value index="1" hex="30">0</value>
+            <value index="2" hex="32">2</value>
+            <value index="3" hex="33">3</value>
+            <value index="4" hex="37">7</value>
+            <value index="5" hex="36">6</value>
+            <value index="6" hex="31">1</value>
+            <value index="7" hex="39">9</value>
+            <value index="8" hex="38">8</value>
+            <value index="9" hex="34">4</value>
+          </values>
+          <fuzzing_constraints mutable="true"/>
+        </field>
+      </fields>
+    </message_type>
+  </message_types>
+</protocol>
