@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D人脸重建与表情驱动系统</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🎭 3D人脸重建与表情驱动系统</h1>
+            <p class="subtitle">基于可微分渲染器 · FLAME模型 · PyTorch3D</p>
+        </header>
+
+        <div class="main-content">
+            <div class="left-panel">
+                <div class="panel-section">
+                    <h2>📷 图片上传</h2>
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="imageInput" accept="image/*" hidden>
+                        <div class="upload-content">
+                            <div class="upload-icon">📁</div>
+                            <p>点击或拖拽上传人脸图片</p>
+                            <span class="hint">支持 JPG, PNG 格式</span>
+                        </div>
+                    </div>
+                    <div class="upload-preview" id="uploadPreview" style="display:none;">
+                        <img id="previewImg" alt="预览">
+                    </div>
+                    <button id="reconstructBtn" class="btn btn-primary" disabled>
+                        🔄 开始重建
+                    </button>
+                </div>
+
+                <div class="panel-section">
+                    <h2>🎬 表情迁移</h2>
+                    <div class="upload-area" id="videoUploadArea">
+                        <input type="file" id="videoInput" accept="video/*" hidden>
+                        <div class="upload-content">
+                            <div class="upload-icon">🎬</div>
+                            <p>上传源视频提取表情</p>
+                            <span class="hint">支持 MP4, AVI 格式</span>
+                        </div>
+                    </div>
+                    <button id="transferBtn" class="btn btn-secondary" disabled>
+                        🎭 表情迁移
+                    </button>
+                    <div id="videoResult" style="display:none; margin-top: 10px;">
+                        <video id="outputVideo" controls style="width:100%;"></video>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>😊 表情预设</h2>
+                    <div class="expression-presets">
+                        <button class="preset-btn" data-expr="neutral">😐 中性</button>
+                        <button class="preset-btn" data-expr="smile">😊 微笑</button>
+                        <button class="preset-btn" data-expr="sad">😢 悲伤</button>
+                        <button class="preset-btn" data-expr="surprised">😮 惊讶</button>
+                        <button class="preset-btn" data-expr="angry">😠 生气</button>
+                        <button class="preset-btn" data-expr="kiss">😘 亲吻</button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>🎛️ 表情控制</h2>
+                    <div id="expressionSliders" class="sliders-container">
+                    </div>
+                    <button id="interpolateBtn" class="btn btn-secondary" style="margin-top:10px;">
+                        🔄 生成插值动画
+                    </button>
+                </div>
+            </div>
+
+            <div class="center-panel">
+                <div class="viewport-container">
+                    <h2>🎨 3D实时预览</h2>
+                    <div class="viewport-controls">
+                        <button class="view-btn" data-view="front">正视图</button>
+                        <button class="view-btn" data-view="side">侧视图</button>
+                        <button class="view-btn" data-view="top">俯视图</button>
+                        <button class="view-btn" data-view="reset">重置视角</button>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas id="threeCanvas"></canvas>
+                        <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+                            <div class="loading-spinner"></div>
+                            <p id="loadingText">处理中...</p>
+                        </div>
+                        <div class="placeholder" id="canvasPlaceholder">
+                            <div class="placeholder-icon">👤</div>
+                            <p>上传图片后将在此显示3D人脸</p>
+                            <p class="hint">拖拽旋转 · 滚轮缩放</p>
+                        </div>
+                    </div>
+                    <div class="viewport-info" id="viewportInfo">
+                        <span id="rotationInfo">旋转: (0°, 0°)</span>
+                        <span id="zoomInfo">缩放: 1.0x</span>
+                    </div>
+                </div>
+
+                <div class="results-grid">
+                    <div class="result-item">
+                        <h3>原图</h3>
+                        <div class="result-image-container">
+                            <img id="originalImage" alt="原图" style="display:none;">
+                            <div class="result-placeholder" id="originalPlaceholder">等待重建...</div>
+                        </div>
+                    </div>
+                    <div class="result-item">
+                        <h3>渲染结果</h3>
+                        <div class="result-image-container">
+                            <img id="renderedImage" alt="渲染结果" style="display:none;">
+                            <div class="result-placeholder" id="renderedPlaceholder">等待重建...</div>
+                        </div>
+                    </div>
+                    <div class="result-item">
+                        <h3>关键点</h3>
+                        <div class="result-image-container">
+                            <img id="landmarksImage" alt="关键点" style="display:none;">
+                            <div class="result-placeholder" id="landmarksPlaceholder">等待重建...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div class="panel-section">
+                    <h2>📊 FLAME参数</h2>
+                    <div class="params-display" id="paramsDisplay">
+                        <div class="param-group">
+                            <label>形状参数 (Shape):</label>
+                            <span id="shapeParam">--</span>
+                        </div>
+                        <div class="param-group">
+                            <label>表情参数 (Expr):</label>
+                            <span id="exprParam">--</span>
+                        </div>
+                        <div class="param-group">
+                            <label>姿态参数 (Pose):</label>
+                            <span id="poseParam">--</span>
+                        </div>
+                        <div class="param-group">
+                            <label>纹理参数 (Tex):</label>
+                            <span id="texParam">--</span>
+                        </div>
+                        <div class="param-group">
+                            <label>相机参数 (Cam):</label>
+                            <span id="camParam">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>⚙️ 视角控制</h2>
+                    <div class="rotation-controls">
+                        <div class="control-group">
+                            <label>俯仰角 (Elevation):</label>
+                            <input type="range" id="elevSlider" min="-90" max="90" value="0" step="1">
+                            <span id="elevValue">0°</span>
+                        </div>
+                        <div class="control-group">
+                            <label>方位角 (Azimuth):</label>
+                            <input type="range" id="azimSlider" min="-180" max="180" value="0" step="1">
+                            <span id="azimValue">0°</span>
+                        </div>
+                        <button id="renderRotatedBtn" class="btn btn-secondary" disabled>
+                            📷 渲染当前视角
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>💾 导出选项</h2>
+                    <div class="export-options">
+                        <button id="exportMeshBtn" class="btn btn-secondary" disabled>
+                            📦 导出网格 (.obj)
+                        </button>
+                        <button id="exportParamsBtn" class="btn btn-secondary" disabled>
+                            📄 导出参数 (.npz)
+                        </button>
+                        <button id="exportImageBtn" class="btn btn-secondary" disabled>
+                            🖼️ 导出当前视图
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel-section status-section">
+                    <h2>🔌 服务状态</h2>
+                    <div class="status-display">
+                        <div class="status-item">
+                            <span class="status-label">后端:</span>
+                            <span class="status-value" id="backendStatus">检查中...</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">设备:</span>
+                            <span class="status-value" id="deviceStatus">--</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">模型:</span>
+                            <span class="status-value" id="modelStatus">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notification" id="notification"></div>
+    </div>
+
+    <script src="js/renderer.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

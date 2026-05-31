@@ -1,0 +1,21 @@
+torch>=1.13.0
+torchvision>=0.14.0
+numpy>=1.23.0
+opencv-python>=4.7.0
+Pillow>=9.3.0
+scipy>=1.9.0
+matplotlib>=3.6.0
+flask>=2.2.0
+flask-cors>=3.0.0
+scikit-image>=0.19.0
+trimesh>=3.17.0
+tqdm>=4.64.0
+pyyaml>=6.0
+easydict>=1.10
+tensorboard>=2.11.0
+
+# 可选依赖（推荐安装）
+# pytorch3d>=0.7.0       # 可微分渲染（需根据CUDA版本编译安装）
+# mediapipe>=0.9.0        # 实时表情捕捉
+# dlib>=19.24.0           # 人脸关键点检测
+# torch_ema>=0.3.0        # 指数移动平均（训练加速可选）
