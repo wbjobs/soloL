@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0A0E17;
+  --bg-card: #1A1F2E;
+  --bg-hover: #2A3040;
+  --accent-green: #00E5A0;
+  --alert-red: #FF3D71;
+  --text-primary: #E2E8F0;
+  --text-muted: #64748B;
+  --border: #2A3040;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+@keyframes pulse-red {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes glow-green {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(0, 229, 160, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(0, 229, 160, 0.6), 0 0 30px rgba(0, 229, 160, 0.2);
+  }
+}
+
+.animate-pulse-red {
+  animation: pulse-red 2s ease-in-out infinite;
+}
+
+.animate-glow-green {
+  animation: glow-green 2s ease-in-out infinite;
+}
+
+.neon-glow {
+  box-shadow: 0 0 8px rgba(0, 229, 160, 0.4), 0 0 20px rgba(0, 229, 160, 0.15);
+}
+
+.neon-border {
+  border: 1px solid var(--accent-green);
+  box-shadow: 0 0 8px rgba(0, 229, 160, 0.3), inset 0 0 8px rgba(0, 229, 160, 0.05);
+}
