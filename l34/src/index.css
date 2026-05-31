@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0D1B2A;
+  --bg-secondary: #1B2838;
+  --bg-panel: #0F1923;
+  --accent: #00F5D4;
+  --accent-hover: #00D4B0;
+  --text-primary: #E0E7EE;
+  --text-secondary: #8B9DB5;
+  --danger: #FF4757;
+
+  font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+@layer components {
+  .toolbar-btn {
+    @apply flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded border border-white/10
+           text-[var(--text-secondary)] hover:text-[var(--text-primary)]
+           hover:bg-[rgba(0,245,212,0.05)]
+           transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .toolbar-btn:hover {
+    border-color: rgba(0, 245, 212, 0.4);
+  }
+
+  .toolbar-btn-active {
+    @apply border-[var(--accent)] bg-[rgba(0,245,212,0.1)] text-[var(--accent)];
+    box-shadow: 0 0 8px rgba(0, 245, 212, 0.15);
+  }
+}
+
+.param-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  outline: none;
+}
+
+.param-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(0, 245, 212, 0.3);
+}
+
+.param-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 6px rgba(0, 245, 212, 0.3);
+}
+
+canvas {
+  cursor: default;
+}
+
+canvas.cursor-crosshair {
+  cursor: crosshair;
+}
