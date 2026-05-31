@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package taskexecutor;
+
+option go_package = "task-scheduler-gateway/proto/taskexecutor";
+
+service TaskExecutor {
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
+  rpc QueryTask(QueryTaskRequest) returns (QueryTaskResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+}
+
+message SubmitTaskRequest {
+  int64 task_id = 1;
+  string name = 2;
+  string payload = 3;
+  int32 priority = 4;
+  int64 user_id = 5;
+}
+
+message SubmitTaskResponse {
+  bool success = 1;
+  string message = 2;
+  string execution_id = 3;
+}
+
+message QueryTaskRequest {
+  int64 task_id = 1;
+}
+
+message QueryTaskResponse {
+  bool success = 1;
+  string status = 2;
+  string result = 3;
+  string message = 4;
+}
+
+message CancelTaskRequest {
+  int64 task_id = 1;
+}
+
+message CancelTaskResponse {
+  bool success = 1;
+  string message = 2;
+}

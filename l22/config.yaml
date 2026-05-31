@@ -1,0 +1,39 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+jwt:
+  secret: "your-secret-key-change-in-production"
+  expire_hours: 24
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+mysql:
+  host: "localhost"
+  port: 3306
+  user: "root"
+  password: "root"
+  dbname: "task_scheduler"
+  max_open_conns: 100
+  max_idle_conns: 10
+
+grpc:
+  executor_addr: "localhost:50051"
+
+rate_limit:
+  capacity: 100
+  rate: 100
+
+etcd:
+  endpoints:
+    - "http://localhost:2379"
+  username: ""
+  password: ""
+
+preemption:
+  default_strategy: "priority"
+  load_threshold: 80.0
+  max_preempt_count: 5
