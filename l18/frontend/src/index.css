@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #0F172A;
+  color: #F1F5F9;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1E293B;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
+
+/* Point cloud canvas */
+.point-cloud-canvas {
+  cursor: crosshair;
+}
+
+.point-cloud-canvas.brush-active {
+  cursor: cell;
+}
+
+/* Selection highlight */
+.selection-highlight {
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.3);
+  }
+}
+
+/* Tooltip */
+.tooltip {
+  @apply absolute z-50 px-2 py-1 text-xs bg-surface text-white rounded shadow-lg pointer-events-none;
+  @apply border border-surface-border;
+}
+
+/* Button styles */
+.btn {
+  @apply px-3 py-2 rounded-md font-medium transition-all duration-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary/50;
+}
+
+.btn-primary {
+  @apply bg-primary text-white hover:bg-primary-hover;
+}
+
+.btn-secondary {
+  @apply bg-surface text-gray-200 hover:bg-surface-hover border border-surface-border;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-500;
+}
+
+.btn-icon {
+  @apply p-2 rounded-md transition-all duration-200;
+  @apply hover:bg-surface-hover;
+}
+
+.btn-icon.active {
+  @apply bg-primary text-white;
+}
+
+/* Panel styles */
+.panel {
+  @apply bg-surface border border-surface-border rounded-lg;
+  @apply backdrop-blur-sm bg-opacity-90;
+}
+
+.panel-header {
+  @apply px-4 py-3 border-b border-surface-border;
+  @apply font-semibold text-sm text-gray-200;
+}
+
+.panel-body {
+  @apply p-4;
+}
+
+/* Slider styles */
+input[type="range"] {
+  @apply w-full h-2 bg-surface-dark rounded-lg appearance-none cursor-pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 bg-primary rounded-full cursor-pointer;
+  @apply hover:bg-primary-hover transition-colors;
+}
+
+input[type="range"]::-moz-range-thumb {
+  @apply w-4 h-4 bg-primary rounded-full cursor-pointer border-0;
+}
+
+/* Loading spinner */
+.spinner {
+  @apply animate-spin rounded-full border-2 border-surface-border border-t-primary;
+}
