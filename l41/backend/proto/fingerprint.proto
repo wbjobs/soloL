@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package fingerprint;
+
+option go_package = "./fingerprintpb";
+
+service FingerprintService {
+  rpc StoreFingerprint(StoreFingerprintRequest) returns (StoreFingerprintResponse);
+  rpc QueryFingerprint(QueryFingerprintRequest) returns (QueryFingerprintResponse);
+  rpc BatchQueryFingerprints(BatchQueryRequest) returns (BatchQueryResponse);
+  rpc BatchStoreFingerprints(BatchStoreRequest) returns (BatchStoreResponse);
+  rpc GetFingerprint(GetFingerprintRequest) returns (GetFingerprintResponse);
+  rpc DeleteFingerprint(DeleteFingerprintRequest) returns (DeleteFingerprintResponse);
+  rpc ListFingerprints(ListFingerprintsRequest) returns (ListFingerprintsResponse);
+}
+
+message Fingerprint {
+  bytes data = 1;
+  string filename = 2;
+  int64 duration_ms = 3;
+  string file_hash = 4;
+  map<string, string> metadata = 5;
+}
+
+message StoreFingerprintRequest {
+  Fingerprint fingerprint = 1;
+}
+
+message StoreFingerprintResponse {
+  string id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message QueryFingerprintRequest {
+  bytes fingerprint_data = 1;
+  int32 max_results = 2;
+  int32 hamming_threshold = 3;
+}
+
+message MatchResult {
+  string id = 1;
+  string filename = 2;
+  int32 hamming_distance = 3;
+  float similarity_score = 4;
+  map<string, string> metadata = 5;
+}
+
+message QueryFingerprintResponse {
+  repeated MatchResult matches = 1;
+  int32 total_count = 2;
+  int32 threshold_used = 3;
+}
+
+message BatchStoreRequest {
+  repeated Fingerprint fingerprints = 1;
+}
+
+message BatchStoreResponse {
+  repeated string ids = 1;
+  int32 success_count = 2;
+  int32 failed_count = 3;
+}
+
+message GetFingerprintRequest {
+  string id = 1;
+}
+
+message GetFingerprintResponse {
+  string id = 1;
+  Fingerprint fingerprint = 2;
+  int64 created_at = 3;
+}
+
+message DeleteFingerprintRequest {
+  string id = 1;
+}
+
+message DeleteFingerprintResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListFingerprintsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message FingerprintInfo {
+  string id = 1;
+  string filename = 2;
+  int64 duration_ms = 3;
+  int64 created_at = 4;
+}
+
+message ListFingerprintsResponse {
+  repeated FingerprintInfo fingerprints = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message BatchQueryRequest {
+  repeated bytes fingerprint_data = 1;
+  int32 max_results_per_query = 2;
+  int32 hamming_threshold = 3;
+}
+
+message QueryResult {
+  bytes query_fingerprint = 1;
+  repeated MatchResult matches = 2;
+}
+
+message BatchQueryResponse {
+  repeated QueryResult results = 1;
+  int32 total_queries = 2;
+  int32 total_matches = 3;
+}
