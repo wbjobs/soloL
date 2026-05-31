@@ -1,0 +1,7 @@
+[
+  { "id": 0, "name": "表层沉积物", "color": "#f0e68c", "minValue": 0, "maxValue": 1.5 },
+  { "id": 1, "name": "上覆岩层", "color": "#90ee90", "minValue": 1.5, "maxValue": 3.0 },
+  { "id": 2, "name": "储层段", "color": "#87ceeb", "minValue": 3.0, "maxValue": 4.5 },
+  { "id": 3, "name": "盖层", "color": "#dda0dd", "minValue": 4.5, "maxValue": 6.0 },
+  { "id": 4, "name": "基底", "color": "#cd853f", "minValue": 6.0, "maxValue": 10.0 }
+]
